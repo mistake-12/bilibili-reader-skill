@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/mistake-12/bilibili-reader-skill/main/assets/logo.svg" width="120" alt="bilibili-reader">
+<img src="https://raw.githubusercontent.com/mistake-12/bilibili-reader-skill/main/assets/logo.svg" width="120" alt="bilibili-reader-skill">
 
-# bilibili-reader
+# bilibili-reader-skill
 
-### B站收藏夹视频智能总结 Skill
+### B站收藏夹视频智能总结
 
 **收藏了不看？让 AI 帮你读。**
 
@@ -15,10 +15,6 @@
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Supported-orange?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHRleHQgeD0iNCIgeT0iMTgiIGZvbnQtc2l6ZT0iMTgiPvCfjLU8L3RleHQ+PC9zdmc+)](https://github.com/openclaw/openclaw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-
-<br>
-
-[English](#english) | [中文](#快速开始)
 
 </div>
 
@@ -73,43 +69,100 @@
 
 ---
 
-## 快速开始
+## 快速开始（30 秒）
+
+> 你只需要告诉你的 Agent 一句话，它会自动完成安装和配置。
+
+### 方式一：通过 Agent 安装（推荐）
+
+**Hermes Agent 用户：**
+
+在终端或聊天窗口中对 Hermes 说：
+
+```
+帮我去 https://github.com/mistake-12/bilibili-reader-skill 安装这个 bilibili-reader skill
+```
+
+**OpenClaw 用户：**
+
+```
+openclaw skills install mistake-12/bilibili-reader-skill
+```
+
+Agent 安装完成后，直接用自然语言调用：
+
+```
+帮我从B站收藏夹随机总结一个视频
+```
+
+Agent 会自动引导你完成 B站登录配置（扫码或手动填 Cookie），然后开始工作。
+
+---
+
+### 方式二：手动安装
+
+如果你想直接在命令行使用（不通过 Agent）：
 
 ```bash
-# 1. 克隆项目
+# 1. 克隆并安装
 git clone https://github.com/mistake-12/bilibili-reader-skill.git
 cd bilibili-reader-skill
-
-# 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 配置（扫码登录 + 推送平台）
+# 2. 配置 B站账号（会打开浏览器扫码，按提示操作即可）
 python -m src --login
 
-# 4. 开始使用
+# 3. 运行
 python -m src
 ```
 
-## 使用方式
+`--login` 会启动一个交互式向导：先让你扫码登录 B站获取 Cookie，再选择推送到哪个聊天平台。配置保存在项目根目录的 `.env` 文件中。
 
-| 命令 | 说明 |
-|:-----|:-----|
-| `python -m src` | 完整视频总结流程 |
-| `python -m src --login` | 首次配置向导 |
-| `python -m src --config` | 修改推送配置 |
-| `python -m src --progress` | 查看考古进度 |
-| `python scripts/run_noninteractive.py <收藏夹> latest` | 最新收藏 |
-| `python scripts/run_noninteractive.py <收藏夹> random` | 随机选取 |
-| `python scripts/run_noninteractive.py <收藏夹> search <关键词>` | 搜索 |
+---
 
-### 通过 Agent 调用
+## 使用示例
+
+### 通过 Agent（最自然的方式）
+
+安装好 skill 后，直接用自然语言和 Agent 对话：
+
+```
+你：帮我从收藏夹总结一个视频
+Agent：正在获取收藏夹列表...
+       随机选中: Python装饰器完全指南 (BV1xx411c7mD)
+       正在下载字幕... 获取到 342 条字幕
+       正在生成总结...
+       PDF已生成: output/20260506_120000_BV1xx411c7mD_Python装饰器完全指南.pdf
+       [DELIVERY] 请将以下内容推送到微信...
+```
+
+```
+你：搜索我之前总结过的关于 Python 的视频
+Agent：在已总结记录中找到 3 个匹配:
+         [💻 技术教程与实操] Python装饰器完全指南
+           TLDR: 装饰器本质是高阶函数的语法糖
+         [💻 技术教程与实操] Python异步编程入门
+           TLDR: asyncio的核心是事件循环+协程
+         ...
+```
+
+### 通过命令行
 
 ```bash
-# Hermes Agent
-hermes --toolsets skills -q "用bilibili-reader总结一个视频"
+# 总结收藏夹里最新收藏的视频
+python scripts/run_noninteractive.py 代码 latest
 
-# OpenClaw
-openclaw skills install bilibili-reader
+# 随机选一个未处理的视频
+python scripts/run_noninteractive.py 代码 random
+
+# 搜索已总结的记录
+python scripts/run_noninteractive.py 代码 search python
+
+# 查看考古进度
+python -m src --progress
+
+# 修改推送平台配置
+python -m src --config
 ```
 
 ---
@@ -117,11 +170,11 @@ openclaw skills install bilibili-reader
 ## 工作流程
 
 ```
-收藏夹选取 → 视频详情 → 字幕/评论/弹幕
+收藏夹选取 → 视频详情 → 字幕 / 评论 / 弹幕
      ↓
-  字幕分段概括（长视频自动分段+重叠区）
+  字幕分段概括（长视频自动分段 + 重叠区）
      ↓
-  意图路由：判断视频体裁（10种类型）
+  意图路由：判断视频体裁（10 种类型）
      ↓
   体裁专用提示词 → LLM 生成结构化总结
      ↓
@@ -177,8 +230,6 @@ openclaw skills install bilibili-reader
 ==================================================
 ```
 
-成就系统：
-
 | 数量 | 成就 | 数量 | 成就 |
 |:-----|:-----|:-----|:-----|
 | 1 | 🌱 初次发掘 | 50 | 🏛️ 知识守护者 |
@@ -188,10 +239,32 @@ openclaw skills install bilibili-reader
 
 ---
 
+## 配置
+
+Agent 安装后会自动引导配置。如需手动修改，编辑项目根目录的 `.env` 文件：
+
+```env
+# B站Cookie（Agent 安装时自动获取）
+BILIBILI_SESSDATA=xxx
+BILIBILI_BILI_JCT=xxx
+BILIBILI_BUVID3=xxx
+
+# 推送平台（可选，不设则不推送）
+DELIVERY_PLATFORM=wechat  # wechat / feishu / telegram / discord / slack / whatsapp / none
+```
+
+也可以运行配置向导重新设置：
+
+```bash
+python -m src --config
+```
+
+---
+
 ## 项目结构
 
 ```
-bilibili-reader/
+bilibili-reader-skill/
 ├── src/
 │   ├── auth.py            # 扫码登录
 │   ├── bilibili_api.py    # B站API封装
@@ -207,11 +280,7 @@ bilibili-reader/
 │   └── run_noninteractive.py  # 非交互入口
 ├── templates/
 │   └── summary.html       # PDF模板
-├── data/
-│   └── processed.json     # 已处理记录
-├── docs/
-│   └── product-analysis.md # 产品分析报告
-├── SKILL.md               # AgentSkills 入口
+├── SKILL.md               # AgentSkills 入口文件
 ├── .env.example           # 配置模板
 └── requirements.txt
 ```
@@ -222,50 +291,14 @@ bilibili-reader/
 
 <div align="center">
 
-| Agent | 状态 | 安装方式 |
-|:------|:----:|:---------|
-| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | ✅ | `hermes skills install bilibili-reader` |
-| [OpenClaw](https://github.com/openclaw/openclaw) | ✅ | `openclaw skills install bilibili-reader` |
-| [Claude Code](https://claude.ai/code) | ✅ | `cp -r bilibili-reader ~/.claude/skills/` |
-| [Gemini CLI](https://geminicli.com) | ✅ | 遵循 AgentSkills.io 标准 |
+| Agent | 安装方式 |
+|:------|:---------|
+| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | 对 Hermes 说：`安装 https://github.com/mistake-12/bilibili-reader-skill` |
+| [OpenClaw](https://github.com/openclaw/openclaw) | `openclaw skills install mistake-12/bilibili-reader-skill` |
+| [Claude Code](https://claude.ai/code) | `git clone` 到 `~/.claude/skills/` 目录 |
+| 其他 Agent | 遵循 [AgentSkills.io](https://agentskills.io) 标准，直接放入 skills 目录 |
 
 </div>
-
-所有兼容 Agent 遵循 [AgentSkills.io](https://agentskills.io) 开放标准，一份代码多端运行。
-
----
-
-## 配置
-
-运行 `python -m src --login` 启动配置向导，或手动编辑 `.env`：
-
-```env
-# B站Cookie（扫码登录自动获取）
-BILIBILI_SESSDATA=xxx
-BILIBILI_BILI_JCT=xxx
-BILIBILI_BUVID3=xxx
-
-# 推送平台（可选）
-DELIVERY_PLATFORM=wechat  # wechat/feishu/telegram/discord/slack/whatsapp/none
-
-# 可选配置
-OUTPUT_DIR=./output
-DATA_DIR=./data
-MAX_COMMENTS=10
-MAX_DANMAKUS=50
-```
-
----
-
-## 依赖
-
-| 包 | 用途 |
-|:---|:-----|
-| `requests` | B站API调用 |
-| `protobuf` | 弹幕解析 |
-| `Jinja2` | HTML模板渲染 |
-| `weasyprint` | PDF生成 |
-| `python-dotenv` | 配置管理 |
 
 ---
 
