@@ -73,7 +73,8 @@ metadata:
 | 命令 | 说明 |
 |------|------|
 | `python -m src` | 运行一次完整的视频总结流程（交互式，需输入选择） |
-| `python -m src --login` | 扫码登录B站，自动配置Cookie |
+| `python -m src --login` | 首次配置向导（扫码登录 + 推送平台设置） |
+| `python -m src --config` | 修改配置（推送平台/推送目标，不动Cookie） |
 | `python -m src --progress` | 查看收藏夹考古进度 |
 | `python scripts/run_noninteractive.py <收藏夹名> latest` | 最新收藏的未处理视频（默认） |
 | `python scripts/run_noninteractive.py <收藏夹名> random` | 随机选一个未处理视频 |
@@ -181,8 +182,12 @@ PDF文件输出在 `output/` 目录，文件名格式：
 
 支持的平台：`wechat`（微信）/ `feishu`（飞书）/ `telegram` / `discord` / `slack` / `whatsapp`
 
-配置示例（`.env`）：
-```
+配置方式：
+```bash
+# 方式一：配置向导（推荐）
+python -m src --config
+
+# 方式二：手动编辑 .env
 DELIVERY_PLATFORM=wechat
 DELIVERY_TARGET=文件传输助手
 ```

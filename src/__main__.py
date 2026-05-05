@@ -5,8 +5,11 @@ import sys
 
 def main():
     if "--login" in sys.argv:
-        from .auth import login_with_qrcode
-        login_with_qrcode()
+        from .setup import run_setup
+        run_setup(skip_cookies=False)
+    elif "--config" in sys.argv:
+        from .setup import run_setup
+        run_setup(skip_cookies=True)
     elif "--progress" in sys.argv:
         from .config import Config
         from .memory import Memory
