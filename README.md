@@ -242,12 +242,12 @@ python -m src --config
 ## 配置
 
 Agent 安装后会自动引导配置。如需手动修改，请打开网页版B站登录账号，F12进入开发者模式在上方“应用程序”→“cookies”复制粘贴下列的值，在编辑项目根目录的 `.env` 文件：
-Cookies保存在本地环境并不会造成隐私泄露
 ```env
 # B站Cookie（Agent 安装时通过之后的扫码登录获取）
 BILIBILI_SESSDATA=xxx
 BILIBILI_BILI_JCT=xxx
 BILIBILI_BUVID3=xxx
+Cookies保存在本地环境并不会造成隐私泄露
 
 # 推送平台（可选，不设则不推送）
 DELIVERY_PLATFORM=wechat  # wechat / feishu / telegram / discord / slack / whatsapp / none
