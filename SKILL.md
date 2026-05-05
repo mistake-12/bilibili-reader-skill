@@ -64,15 +64,20 @@ metadata:
 - "帮我看看收藏了什么"
 - "今天推送一个视频总结"
 - "bilibili reader"
+- "扫码登录B站"
+- "看看我的考古进度"
+- "搜索我总结过的视频"
 
 ## Quick Reference
 
 | 命令 | 说明 |
 |------|------|
 | `python -m src` | 运行一次完整的视频总结流程（交互式，需输入选择） |
-| `python -m src.main` | 同上 |
+| `python -m src --login` | 扫码登录B站，自动配置Cookie |
+| `python -m src --progress` | 查看收藏夹考古进度 |
 | `python scripts/run_noninteractive.py <收藏夹名> latest` | 最新收藏的未处理视频（默认） |
 | `python scripts/run_noninteractive.py <收藏夹名> random` | 随机选一个未处理视频 |
+| `python scripts/run_noninteractive.py <收藏夹名> search <关键词>` | 搜索已总结记录和未处理视频 |
 | `python scripts/run_noninteractive.py <收藏夹名> <bvid>` | 指定BV号 |
 | `hermes --toolsets skills -q "用bilibili-reader总结一个视频"` | 通过hermes调用 |
 
@@ -163,6 +168,26 @@ PDF文件输出在 `output/` 目录，文件名格式：
 ```
 20260504_120000_BV1xx411c7mD_视频标题.pdf
 ```
+
+### Step 5: 推送到聊天平台（可选）
+
+在 `.env` 中配置 `DELIVERY_PLATFORM` 后，程序会输出 `[DELIVERY]` 标记的推送指令。
+
+**Agent 行为规则：** 当你看到输出中包含 `[DELIVERY]` 标记时，请执行以下操作：
+
+1. 读取 `[DELIVERY]` 指令中的平台、目标、文件路径和消息内容
+2. 使用你内置的消息投递能力，将 PDF 文件发送到对应平台
+3. 附带一句话 TLDR 摘要作为消息正文
+
+支持的平台：`wechat`（微信）/ `feishu`（飞书）/ `telegram` / `discord` / `slack` / `whatsapp`
+
+配置示例（`.env`）：
+```
+DELIVERY_PLATFORM=wechat
+DELIVERY_TARGET=文件传输助手
+```
+
+如果不配置或设为 `none`，则只在本地生成 PDF，不推送。
 
 ## Pitfalls
 

@@ -25,6 +25,10 @@ class Config:
     MAX_COMMENTS: int = int(os.getenv("MAX_COMMENTS", "10"))
     MAX_DANMAKUS: int = int(os.getenv("MAX_DANMAKUS", "50"))
 
+    # 推送配置
+    DELIVERY_PLATFORM: str = os.getenv("DELIVERY_PLATFORM", "none")  # wechat/feishu/telegram/discord/slack/whatsapp/none
+    DELIVERY_TARGET: str = os.getenv("DELIVERY_TARGET", "")  # 群聊/频道名称或ID
+
     @classmethod
     def validate(cls) -> list[str]:
         """验证必填配置项，返回缺失项列表"""

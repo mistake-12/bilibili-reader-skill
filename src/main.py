@@ -186,7 +186,37 @@ def run(llm_caller=None):
     # 13. 展示考古进度
     print_progress(memory, folder_name=folder.title, total_in_folder=folder.media_count)
 
+    # 14. 推送指令（agent读取后自动推送到对应平台）
+    _print_delivery_instruction(pdf_path, summary.title_cn)
+
     return pdf_path
+
+
+def _print_delivery_instruction(pdf_path: Path, title: str):
+    """输出推送指令，供 agent 解析后投递到对应平台"""
+    platform = Config.DELIVERY_PLATFORM.lower()
+    if platform == "none" or not platform:
+        return
+
+    target = Config.DELIVERY_TARGET
+    platform_names = {
+        "wechat": "微信",
+        "feishu": "飞书",
+        "telegram": "Telegram",
+        "discord": "Discord",
+        "slack": "Slack",
+        "whatsapp": "WhatsApp",
+    }
+    platform_cn = platform_names.get(platform, platform)
+
+    print(f"\n{'='*50}")
+    print(f"[DELIVERY] 请将以下内容推送到{platform_cn}:")
+    if target:
+        print(f"[DELIVERY] 目标: {target}")
+    print(f"[DELIVERY] 文件: {pdf_path}")
+    print(f"[DELIVERY] 消息: B站视频总结已生成 —— {title}")
+    print(f"[DELIVERY] 格式: 发送PDF文件 + 一句话TLDR摘要")
+    print(f"{'='*50}")
 
 
 if __name__ == "__main__":
