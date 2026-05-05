@@ -189,10 +189,9 @@ python -m src --config
 
 # 方式二：手动编辑 .env
 DELIVERY_PLATFORM=wechat
-DELIVERY_TARGET=文件传输助手
 ```
 
-如果不配置或设为 `none`，则只在本地生成 PDF，不推送。
+推送目标由 agent 默认对话决定，不需要额外配置。如果不配置或设为 `none`，则只在本地生成 PDF，不推送。
 
 ## Pitfalls
 

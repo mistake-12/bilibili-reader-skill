@@ -62,25 +62,16 @@ def run_setup(skip_cookies: bool = False):
     )
     platform_key, platform_name, _ = PLATFORMS[int(choice) - 1]
 
-    target = ""
-    if platform_key != "none":
-        print(f"\n  你选择了 {platform_name}")
-        print(f"  请设置推送目标（群聊名称/频道ID/留空发给默认对话）：")
-        target = input("  目标: ").strip()
-
     # 3. 保存配置
     existing["DELIVERY_PLATFORM"] = platform_key
-    existing["DELIVERY_TARGET"] = target
+    existing.pop("DELIVERY_TARGET", None)
     _write_env(env_path, existing)
 
     print(f"\n{'='*50}")
     print(f"  配置完成!")
     print(f"{'='*50}")
     print(f"\n  推送平台: {platform_name}")
-    if target:
-        print(f"  推送目标: {target}")
-    else:
-        print(f"  推送目标: 默认对话")
+    print(f"  推送目标: 由 agent 默认对话决定")
     print(f"\n  配置文件: {env_path}")
     print(f"  修改配置: python -m src --config")
     print()

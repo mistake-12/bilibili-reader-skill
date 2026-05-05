@@ -27,7 +27,6 @@ class Config:
 
     # 推送配置
     DELIVERY_PLATFORM: str = os.getenv("DELIVERY_PLATFORM", "none")  # wechat/feishu/telegram/discord/slack/whatsapp/none
-    DELIVERY_TARGET: str = os.getenv("DELIVERY_TARGET", "")  # 群聊/频道名称或ID
 
     @classmethod
     def validate(cls) -> list[str]:
