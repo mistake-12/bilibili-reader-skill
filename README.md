@@ -1,0 +1,281 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/mistake-12/bilibili-reader-skill/main/assets/logo.svg" width="120" alt="bilibili-reader">
+
+# bilibili-reader
+
+### B站收藏夹视频智能总结 Skill
+
+**收藏了不看？让 AI 帮你读。**
+
+自动从 B站收藏夹选取视频，读取字幕、评论、弹幕，生成中英双语结构化学习笔记。
+
+[![AgentSkills](https://img.shields.io/badge/AgentSkills.io-Compatible-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDJMMyA3djEwbDkgNSA5LTVIN0wxMiAyeiIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==)](https://agentskills.io)
+[![Hermes Agent](https://img.shields.io/badge/Hermes_Agent-Supported-green?style=for-the-badge)](https://github.com/NousResearch/hermes-agent)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-Supported-orange?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHRleHQgeD0iNCIgeT0iMTgiIGZvbnQtc2l6ZT0iMTgiPvCfjLU8L3RleHQ+PC9zdmc+)](https://github.com/openclaw/openclaw)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+
+<br>
+
+[English](#english) | [中文](#快速开始)
+
+</div>
+
+---
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" width="33%">
+
+### ⚡ 智能体裁路由
+自动判断 10 种视频类型，用最合适的提示词生成总结
+
+</td>
+<td align="center" width="33%">
+
+### 🗺️ 收藏夹考古
+可视化进度追踪 + 成就系统，让"消化收藏"变成游戏
+
+</td>
+<td align="center" width="33%">
+
+### 📬 多平台推送
+生成 PDF 后自动推送到微信 / 飞书 / Telegram / Discord
+
+</td>
+</tr>
+<tr>
+<td align="center">
+
+### 🔐 扫码登录
+浏览器弹窗扫码，无需手动复制 Cookie
+
+</td>
+<td align="center">
+
+### 🌏 中英双语
+每份总结同时生成中文和英文版本，对照阅读
+
+</td>
+<td align="center">
+
+### 🧠 知识积累
+记忆系统存储完整总结，支持关键词搜索和体裁过滤
+
+</td>
+</tr>
+</table>
+
+</div>
+
+---
+
+## 快速开始
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/mistake-12/bilibili-reader-skill.git
+cd bilibili-reader-skill
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 配置（扫码登录 + 推送平台）
+python -m src --login
+
+# 4. 开始使用
+python -m src
+```
+
+## 使用方式
+
+| 命令 | 说明 |
+|:-----|:-----|
+| `python -m src` | 完整视频总结流程 |
+| `python -m src --login` | 首次配置向导 |
+| `python -m src --config` | 修改推送配置 |
+| `python -m src --progress` | 查看考古进度 |
+| `python scripts/run_noninteractive.py <收藏夹> latest` | 最新收藏 |
+| `python scripts/run_noninteractive.py <收藏夹> random` | 随机选取 |
+| `python scripts/run_noninteractive.py <收藏夹> search <关键词>` | 搜索 |
+
+### 通过 Agent 调用
+
+```bash
+# Hermes Agent
+hermes --toolsets skills -q "用bilibili-reader总结一个视频"
+
+# OpenClaw
+openclaw skills install bilibili-reader
+```
+
+---
+
+## 工作流程
+
+```
+收藏夹选取 → 视频详情 → 字幕/评论/弹幕
+     ↓
+  字幕分段概括（长视频自动分段+重叠区）
+     ↓
+  意图路由：判断视频体裁（10种类型）
+     ↓
+  体裁专用提示词 → LLM 生成结构化总结
+     ↓
+  PDF 渲染 + 考古进度更新 + 平台推送
+```
+
+---
+
+## 10 种体裁路由
+
+系统自动判断视频类型，使用对应的专用提示词：
+
+| 体裁 | 特征 | 专用字段 |
+|:-----|:-----|:---------|
+| 💻 技术教程 | 编程/工具/配置 | 工具清单 · 代码片段 · 避坑指南 · 验证步骤 |
+| 🎓 学科教育 | 考试/公开课 | 考点 · 考试形式 · 应试技巧 |
+| 🗣️ 语言学习 | 外语/语法 | 结构化词汇表 · 语法点 · 发音要点 |
+| 🔬 深度解析 | 科普/商业/政经 | 论点-论据链 · 数据来源 · 批判性思考 |
+| 🧠 方法论 | 学习/时间管理 | 可执行框架 · 练习模板 · 执行洞察 |
+| 💼 职场技能 | 求职/副业 | 话术模板 · 场景SOP · 深层逻辑 |
+| 🎨 艺术创造 | 绘画/摄影/音乐 | 技法要点 · 参考作品 · 审美规律 |
+| 📖 书籍拆解 | 速读/拆书 | 关键引述 · 核心论点 · 价值评估 |
+| 🛠️ 生活技能 | 维修/烹饪 | 材料清单 · 操作步骤 · 验收标准 |
+| 📚 通用知识 | 兜底 | 深入浅出 · 相关话题 · 反直觉结论 |
+
+每种体裁还有 4 个通用学习字段：**前置知识** · **难度评级** · **后续行动** · **常见误解**
+
+---
+
+## 收藏夹考古
+
+每次运行后自动展示进度：
+
+```
+==================================================
+  🗺️  收藏夹考古进度
+  📁 收藏夹: 代码
+==================================================
+
+  ████████████░░░░░░░░  40%
+  已消化 12/30 个视频
+
+  📊 知识图谱:
+    💻 技术教程与实操   ███████████████ 8
+    🧠 方法论与自我提升 ████████ 4
+    📚 通用知识         ████ 2
+
+  🏆 成就:
+    🌱 初次发掘 — 消化了第一个视频
+    🔍 考古新手 — 消化 5 个视频
+    ⛏️ 考古学徒 — 消化 10 个视频
+    🔧 技术工匠 — 技术教程类消化 5+ 个
+==================================================
+```
+
+成就系统：
+
+| 数量 | 成就 | 数量 | 成就 |
+|:-----|:-----|:-----|:-----|
+| 1 | 🌱 初次发掘 | 50 | 🏛️ 知识守护者 |
+| 5 | 🔍 考古新手 | 100 | 👑 收藏夹征服者 |
+| 10 | ⛏️ 考古学徒 | 5+ 体裁 | 🌈 博览群书 |
+| 25 | 🗺️ 地图绘制者 | 8+ 体裁 | 🎯 全能选手 |
+
+---
+
+## 项目结构
+
+```
+bilibili-reader/
+├── src/
+│   ├── auth.py            # 扫码登录
+│   ├── bilibili_api.py    # B站API封装
+│   ├── config.py          # 配置管理
+│   ├── intent_router.py   # 10种体裁提示词
+│   ├── main.py            # 交互式主入口
+│   ├── memory.py          # 长期记忆系统
+│   ├── pdf_generator.py   # PDF生成
+│   ├── progress.py        # 考古进度可视化
+│   ├── setup.py           # 配置向导
+│   └── summarizer.py      # LLM总结核心
+├── scripts/
+│   └── run_noninteractive.py  # 非交互入口
+├── templates/
+│   └── summary.html       # PDF模板
+├── data/
+│   └── processed.json     # 已处理记录
+├── docs/
+│   └── product-analysis.md # 产品分析报告
+├── SKILL.md               # AgentSkills 入口
+├── .env.example           # 配置模板
+└── requirements.txt
+```
+
+---
+
+## Agent 兼容性
+
+<div align="center">
+
+| Agent | 状态 | 安装方式 |
+|:------|:----:|:---------|
+| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | ✅ | `hermes skills install bilibili-reader` |
+| [OpenClaw](https://github.com/openclaw/openclaw) | ✅ | `openclaw skills install bilibili-reader` |
+| [Claude Code](https://claude.ai/code) | ✅ | `cp -r bilibili-reader ~/.claude/skills/` |
+| [Gemini CLI](https://geminicli.com) | ✅ | 遵循 AgentSkills.io 标准 |
+
+</div>
+
+所有兼容 Agent 遵循 [AgentSkills.io](https://agentskills.io) 开放标准，一份代码多端运行。
+
+---
+
+## 配置
+
+运行 `python -m src --login` 启动配置向导，或手动编辑 `.env`：
+
+```env
+# B站Cookie（扫码登录自动获取）
+BILIBILI_SESSDATA=xxx
+BILIBILI_BILI_JCT=xxx
+BILIBILI_BUVID3=xxx
+
+# 推送平台（可选）
+DELIVERY_PLATFORM=wechat  # wechat/feishu/telegram/discord/slack/whatsapp/none
+
+# 可选配置
+OUTPUT_DIR=./output
+DATA_DIR=./data
+MAX_COMMENTS=10
+MAX_DANMAKUS=50
+```
+
+---
+
+## 依赖
+
+| 包 | 用途 |
+|:---|:-----|
+| `requests` | B站API调用 |
+| `protobuf` | 弹幕解析 |
+| `Jinja2` | HTML模板渲染 |
+| `weasyprint` | PDF生成 |
+| `python-dotenv` | 配置管理 |
+
+---
+
+<div align="center">
+
+**收藏了不看？让它变成知识。**
+
+[![GitHub stars](https://img.shields.io/github/stars/mistake-12/bilibili-reader-skill?style=social)](https://github.com/mistake-12/bilibili-reader-skill/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/mistake-12/bilibili-reader-skill?style=social)](https://github.com/mistake-12/bilibili-reader-skill/issues)
+
+Made with ❤️ for B站重度用户
+
+</div>
