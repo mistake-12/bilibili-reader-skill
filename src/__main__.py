@@ -1,0 +1,22 @@
+"""允许通过 python -m src 运行"""
+
+import sys
+
+
+def main():
+    if "--login" in sys.argv:
+        from .auth import login_with_qrcode
+        login_with_qrcode()
+    elif "--progress" in sys.argv:
+        from .config import Config
+        from .memory import Memory
+        from .progress import print_progress
+        memory = Memory(Config.DATA_DIR / "processed.json")
+        print_progress(memory)
+    else:
+        from .main import run
+        run()
+
+
+if __name__ == "__main__":
+    main()

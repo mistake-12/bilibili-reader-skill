@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title_cn }} — B站视频学习笔记</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.8cm 2cm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Noto Sans CJK SC", "WenQuanYi Zen Hei", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+            font-size: 10.5pt;
+            line-height: 1.7;
+            color: #2c2c2c;
+        }
+
+        /* ── 头部 ── */
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #00a1d6;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 20pt;
+            color: #00a1d6;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            font-size: 13pt;
+            color: #555;
+            font-style: italic;
+        }
+
+        .meta {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin: 10px 0;
+            font-size: 9.5pt;
+            color: #888;
+        }
+
+        .genre-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #00a1d6, #0087b5);
+            color: #fff;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 9pt;
+            margin-top: 5px;
+        }
+
+        /* ── TLDR ── */
+        .tldr {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .tldr-label {
+            font-weight: bold;
+            color: #856404;
+            font-size: 10pt;
+        }
+
+        .tldr-cn {
+            font-size: 11pt;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .tldr-en {
+            font-size: 10pt;
+            color: #666;
+            font-style: italic;
+        }
+
+        /* ── 通用区块 ── */
+        .section {
+            margin-bottom: 18px;
+        }
+
+        .section-title {
+            font-size: 13pt;
+            color: #00a1d6;
+            border-left: 4px solid #00a1d6;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+
+        .section-title-en {
+            font-size: 11pt;
+            color: #6c757d;
+            border-left: 4px solid #6c757d;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+
+        .content-block {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 10pt;
+            line-height: 1.8;
+        }
+
+        .content-block-en {
+            background: #f0f4f8;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 10pt;
+            line-height: 1.8;
+            color: #444;
+        }
+
+        /* ── 中英文分离标记 ── */
+        .lang-tag {
+            display: inline-block;
+            font-size: 8pt;
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .lang-tag-cn {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .lang-tag-en {
+            background: #6c757d;
+            color: #fff;
+        }
+
+        /* ── 要点列表 ── */
+        .key-points {
+            list-style: none;
+            padding: 0;
+        }
+
+        .key-points li {
+            padding: 6px 0 6px 22px;
+            position: relative;
+            border-bottom: 1px dashed #e0e0e0;
+            font-size: 10pt;
+        }
+
+        .key-points li:last-child {
+            border-bottom: none;
+        }
+
+        .key-points li::before {
+            content: "▸";
+            color: #00a1d6;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .key-points-en li::before {
+            color: #6c757d;
+        }
+
+        /* ── 洞察区块 ── */
+        .insights {
+            background: linear-gradient(135deg, #e8f4fd, #f0f8ff);
+            border: 1px solid #b8daff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .insights-en {
+            background: linear-gradient(135deg, #f8f9fa, #f0f4f8);
+            border: 1px solid #d6d8db;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* ── 评论区 ── */
+        .comment-card {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            border-left: 3px solid #fb7299;
+        }
+
+        .comment-user {
+            font-weight: bold;
+            color: #fb7299;
+            font-size: 9pt;
+        }
+
+        .comment-likes {
+            font-size: 8.5pt;
+            color: #aaa;
+            margin-left: 8px;
+        }
+
+        .comment-text {
+            margin-top: 3px;
+            font-size: 9.5pt;
+        }
+
+        /* ── 推荐 ── */
+        .recommendation {
+            background: linear-gradient(135deg, #00a1d610, #fb729910);
+            border: 1px solid #00a1d630;
+            padding: 12px 15px;
+            border-radius: 8px;
+        }
+
+        /* ── 页脚 ── */
+        .footer {
+            margin-top: 25px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 8.5pt;
+            color: #aaa;
+        }
+
+        /* ── 分隔线 ── */
+        .divider {
+            border: none;
+            border-top: 1px dashed #ddd;
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- 标题区 -->
+    <div class="header">
+        <h1>{{ title_cn }}</h1>
+        <div class="subtitle">{{ title_en }}</div>
+        <div class="meta">
+            <span>UP主: {{ owner }}</span>
+            <span>时长: {{ duration_str }}</span>
+            <span>播放: {{ "{:,}".format(view_count) }}</span>
+            <span>点赞: {{ "{:,}".format(like_count) }}</span>
+        </div>
+        {% if genre %}
+        <span class="genre-badge">{{ genre }}</span>
+        {% endif %}
+    </div>
+
+    <!-- TLDR -->
+    {% if tldr_cn %}
+    <div class="tldr">
+        <span class="tldr-label">⚡ 一句话总结 / TL;DR</span>
+        <div class="tldr-cn">{{ tldr_cn }}</div>
+        {% if tldr_en %}
+        <div class="tldr-en">{{ tldr_en }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ═══════════ 中文部分 ═══════════ -->
+    <div class="section">
+        <h3 class="section-title">📋 内容摘要</h3>
+        <div class="content-block">{{ summary_cn }}</div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-title">🎯 核心要点</h3>
+        <ul class="key-points">
+            {% for point in key_points_cn %}
+            <li>{{ point }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% if prerequisites_cn %}
+    <div class="section">
+        <h3 class="section-title">📋 前置知识</h3>
+        <div class="content-block">{{ prerequisites_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if difficulty_cn %}
+    <div class="section">
+        <h3 class="section-title">📊 难度评级</h3>
+        <div class="content-block">{{ difficulty_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if key_misconceptions_cn %}
+    <div class="section">
+        <h3 class="section-title">❌ 常见误解</h3>
+        <div class="content-block">{{ key_misconceptions_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if insights_cn %}
+    <div class="section">
+        <h3 class="section-title">🧠 洞察与启发</h3>
+        <div class="insights">{{ insights_cn }}</div>
+    </div>
+    {% endif %}
+
+    <!-- 技术教程专用：工具清单 -->
+    {% if tool_stack %}
+    <div class="section">
+        <h3 class="section-title">🧰 工具与资源清单</h3>
+        <div class="content-block">
+            {% for tool in tool_stack %}
+            <div style="margin-bottom: 8px;">
+                <strong>{{ tool.name }}</strong>：{{ tool.purpose }}
+                {% if tool.barrier %}
+                <br><span style="color: #dc3545; font-size: 9pt;">⚠ {{ tool.barrier }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 技术教程专用：代码片段 -->
+    {% if code_snippets %}
+    <div class="section">
+        <h3 class="section-title">💻 核心代码 / 提示词</h3>
+        {% for snippet in code_snippets %}
+        <div style="margin-bottom: 10px;">
+            {% if snippet.context %}
+            <div style="font-size: 9pt; color: #666; margin-bottom: 3px;">{{ snippet.context }}</div>
+            {% endif %}
+            <div style="background: #1e1e1e; color: #d4d4d4; padding: 10px 12px; border-radius: 6px; font-family: 'Consolas', 'Courier New', monospace; font-size: 9pt; white-space: pre-wrap; overflow-x: auto;">{{ snippet.code }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 技术教程专用：避坑指南 -->
+    {% if pitfalls_cn %}
+    <div class="section">
+        <h3 class="section-title">⚠️ 避坑指南</h3>
+        <ul class="key-points">
+            {% for pitfall in pitfalls_cn %}
+            <li>{{ pitfall }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <hr class="divider">
+
+    <!-- ═══════════ 英文部分（独立） ═══════════ -->
+    <div class="section">
+        <h3 class="section-title-en">📋 Summary</h3>
+        <div class="content-block-en">{{ summary_en }}</div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-title-en">🎯 Key Points</h3>
+        <ul class="key-points key-points-en">
+            {% for point in key_points_en %}
+            <li>{{ point }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% if prerequisites_en %}
+    <div class="section">
+        <h3 class="section-title-en">📋 Prerequisites</h3>
+        <div class="content-block-en">{{ prerequisites_en }}</div>
+    </div>
+    {% endif %}
+
+    {% if difficulty_en %}
+    <div class="section">
+        <h3 class="section-title-en">📊 Difficulty</h3>
+        <div class="content-block-en">{{ difficulty_en }}</div>
+    </div>
+    {% endif %}
+
+    {% if key_misconceptions_en %}
+    <div class="section">
+        <h3 class="section-title-en">❌ Common Misconceptions</h3>
+        <div class="content-block-en">{{ key_misconceptions_en }}</div>
+    </div>
+    {% endif %}
+
+    {% if insights_en %}
+    <div class="section">
+        <h3 class="section-title-en">🧠 Insights</h3>
+        <div class="insights-en">{{ insights_en }}</div>
+    </div>
+    {% endif %}
+
+    <!-- 技术教程专用：英文避坑指南 -->
+    {% if pitfalls_en %}
+    <div class="section">
+        <h3 class="section-title-en">⚠️ Pitfalls</h3>
+        <ul class="key-points key-points-en">
+            {% for pitfall in pitfalls_en %}
+            <li>{{ pitfall }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <hr class="divider">
+
+    <!-- ═══════════ 体裁专用区块 ═══════════ -->
+
+    {% if expected_outcome_cn %}
+    <div class="section">
+        <h3 class="section-title">✅ 验证步骤</h3>
+        <div class="content-block">{{ expected_outcome_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if exam_format_cn %}
+    <div class="section">
+        <h3 class="section-title">📝 考试形式</h3>
+        <div class="content-block">{{ exam_format_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if vocabulary_list %}
+    <div class="section">
+        <h3 class="section-title">📖 核心词汇</h3>
+        <div class="content-block">
+            {% for item in vocabulary_list %}
+            <div style="margin-bottom: 6px;">
+                <strong>{{ item.word }}</strong>: {{ item.meaning }}
+                {% if item.example %}
+                <br><span style="color:#666; font-size:9pt;">例: {{ item.example }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if data_sources_cn %}
+    <div class="section">
+        <h3 class="section-title">📊 数据来源</h3>
+        <div class="content-block">{{ data_sources_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if practice_template_cn %}
+    <div class="section">
+        <h3 class="section-title">📝 练习模板</h3>
+        <div class="content-block">{{ practice_template_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if scripts_templates %}
+    <div class="section">
+        <h3 class="section-title">🗣️ 话术模板</h3>
+        <div class="content-block">
+            {% for item in scripts_templates %}
+            <div style="margin-bottom: 8px;">
+                <strong>场景：{{ item.scenario }}</strong>
+                <div style="padding-left: 10px; border-left: 3px solid #00a1d6; margin-top: 3px;">{{ item.script }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if reference_works_cn %}
+    <div class="section">
+        <h3 class="section-title">🎨 参考作品</h3>
+        <div class="content-block">{{ reference_works_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if key_quotes %}
+    <div class="section">
+        <h3 class="section-title">💬 关键引述</h3>
+        <div class="content-block">
+            {% for q in key_quotes %}
+            <div style="margin-bottom: 8px; padding-left: 10px; border-left: 3px solid #00a1d6;">
+                <em>"{{ q.quote }}"</em>
+                {% if q.context %}
+                <br><span style="font-size:9pt; color:#666;">— {{ q.context }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if materials_list %}
+    <div class="section">
+        <h3 class="section-title">🔧 材料清单</h3>
+        <div class="content-block">
+            {% for item in materials_list %}
+            <div style="margin-bottom: 4px;">
+                <strong>{{ item.item }}</strong>：{{ item.purpose }}
+                {% if item.cost_estimate %}
+                <span style="color:#888; font-size:9pt;">（约{{ item.cost_estimate }}）</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if related_topics_cn %}
+    <div class="section">
+        <h3 class="section-title">🔗 相关话题</h3>
+        <div class="content-block">{{ related_topics_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if next_steps_cn %}
+    <div class="section">
+        <h3 class="section-title">🚀 后续行动</h3>
+        <div class="content-block">{{ next_steps_cn }}</div>
+    </div>
+    {% endif %}
+
+    {% if next_steps_en %}
+    <div class="section">
+        <h3 class="section-title-en">🚀 Next Steps</h3>
+        <div class="content-block-en">{{ next_steps_en }}</div>
+    </div>
+    {% endif %}
+
+    <hr class="divider">
+
+    <!-- ═══════════ 评论区（中英混合） ═══════════ -->
+    {% if top_comments %}
+    <div class="section">
+        <h3 class="section-title">💬 精选评论 / Top Comments</h3>
+        {% for comment in top_comments %}
+        <div class="comment-card">
+            <span class="comment-user">{{ comment.user }}</span>
+            <span class="comment-likes">{{ comment.likes }} 赞</span>
+            <div class="comment-text">{{ comment.content_cn }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ═══════════ 推荐 ═══════════ -->
+    {% if recommendation_cn %}
+    <div class="section">
+        <h3 class="section-title">✅ 推荐理由</h3>
+        <div class="recommendation">
+            <div class="content-block">{{ recommendation_cn }}</div>
+        </div>
+    </div>
+    <div class="section">
+        <h3 class="section-title-en">✅ Recommendation</h3>
+        <div class="recommendation">
+            <div class="content-block-en">{{ recommendation_en }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 页脚 -->
+    {% if progress_text %}
+    <div style="text-align: center; margin-top: 15px; padding: 8px; background: #f0f8ff; border-radius: 6px; font-size: 9pt; color: #555;">
+        🗺️ {{ progress_text }}
+    </div>
+    {% endif %}
+    <div class="footer">
+        Generated by bilibili-reader skill · hermes-agent · {{ genre }}
+    </div>
+</body>
+</html>
