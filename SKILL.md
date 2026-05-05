@@ -2,7 +2,7 @@
 name: bilibili-reader
 description: "B站收藏夹视频智能总结：随机选取收藏视频，阅读字幕/评论/弹幕，生成中英双语总结PDF"
 version: 1.0.0
-author: hermes-agent
+author: mistake-12
 license: MIT
 prerequisites:
   env_vars:
@@ -32,6 +32,24 @@ metadata:
       - reading
       - favorites
     related_skills: []
+  openclaw:
+    requires:
+      bins:
+        - python3
+        - pip
+      env:
+        - BILIBILI_SESSDATA
+        - BILIBILI_BILI_JCT
+        - BILIBILI_BUVID3
+    tags:
+      - bilibili
+      - video
+      - summary
+      - pdf
+      - chinese
+      - bilingual
+      - reading
+      - favorites
 ---
 
 # bilibili-reader — B站收藏夹视频智能总结
@@ -204,8 +222,8 @@ PDF文件输出在 `output/` 目录，文件名格式：
 | 时长 | 策略 |
 |------|------|
 | < 30分钟 | 字幕概括后直接总结（不送完整原文） |
-| 30-120分钟 | 分段+重叠区（每段10分钟，重叠60秒），每段概括后合并总结 |
-| > 120分钟 | 同上，但先警告处理时间较长 |
+| 30-60分钟 | 分段+重叠区（每段10分钟，重叠60秒），每段概括后合并总结 |
+| > 60分钟 | 同上，但先警告处理时间较长 |
 
 - **重叠区作用**：防止一句话被生硬劈成两半导致上下文断裂
 - **分段概括**：每段独立提炼关键信息，保留技术术语和操作步骤
