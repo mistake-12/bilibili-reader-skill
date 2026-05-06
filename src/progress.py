@@ -1,7 +1,10 @@
-"""收藏夹考古 — 进度可视化"""
+"""收藏夹考古 — 进度可视化 + 学习路径推荐"""
 
+import random
+from pathlib import Path
 from dataclasses import dataclass, field
 from .memory import Memory
+from .topic_graph import TopicGraph, LearningPathItem, load_or_build_graph
 
 
 @dataclass
@@ -12,9 +15,14 @@ class ProgressStats:
     genres: dict[str, int] = field(default_factory=dict)  # {genre_display: count}
     streak_days: int = 0
     top_genres: list[tuple[str, int]] = field(default_factory=list)
+    topic_stats: dict = field(default_factory=dict)  # Topic 图谱统计
 
 
-def calculate_progress(memory: Memory, total_in_folder: int = 0) -> ProgressStats:
+def calculate_progress(
+    memory: Memory,
+    total_in_folder: int = 0,
+    data_dir: Path | None = None,
+) -> ProgressStats:
     """计算进度统计"""
     processed = memory.get_all_processed()
     total = len(processed)
@@ -33,13 +41,90 @@ def calculate_progress(memory: Memory, total_in_folder: int = 0) -> ProgressStat
     if total_in_folder > 0:
         percentage = (total / total_in_folder) * 100
 
+    # Topic 图谱统计
+    topic_stats = {}
+    if data_dir:
+        graph = load_or_build_graph(data_dir)
+        topic_stats = graph.get_topic_stats()
+
     return ProgressStats(
         total_processed=total,
         total_in_folder=total_in_folder,
         percentage=percentage,
         genres=genres,
         top_genres=top_genres,
+        topic_stats=topic_stats,
     )
+
+
+def select_next_video(
+    memory: Memory,
+    folder_videos: list,
+    data_dir: Path | None = None,
+) -> dict | None:
+    """
+    基于学习路径推荐下一个视频，而非随机选择
+
+    Args:
+        memory: 记忆模块（已处理视频记录）
+        folder_videos: 当前收藏夹所有视频的 VideoInfo 列表
+        data_dir: 数据目录（用于加载 TopicGraph）
+
+    Returns:
+        推荐的下一个视频 dict，包含 title 和 reason
+    """
+    # 获取未处理的视频
+    unprocessed = [v for v in folder_videos if not memory.is_processed(v.bvid)]
+    if not unprocessed:
+        return None
+
+    mastered_bvids = {v.bvid for v in memory.get_all_processed()}
+    candidate_bvids = {v.bvid for v in unprocessed}
+
+    # 加载 TopicGraph
+    if data_dir:
+        graph = load_or_build_graph(data_dir)
+        path = graph.get_learning_path(
+            mastered_bvids=mastered_bvids,
+            candidate_bvids=candidate_bvids,
+            max_results=1,
+        )
+        if path:
+            recommended = path[0]
+            # 从 folder_videos 中找到对应 VideoInfo
+            target = next((v for v in unprocessed if v.bvid == recommended.bvid), None)
+            if target:
+                return {
+                    "bvid": target.bvid,
+                    "title": getattr(target, "title", recommended.title),
+                    "reason": recommended.reason,
+                    "topic": recommended.topic,
+                }
+
+    # 冷启动 fallback：随机选择
+    chosen = random.choice(unprocessed)
+    return {
+        "bvid": chosen.bvid,
+        "title": getattr(chosen, "title", chosen.bvid),
+        "reason": "随机选择（知识图谱尚无足够数据）",
+        "topic": "",
+    }
+
+
+def render_learning_path_banner(recommendation: dict) -> str:
+    """渲染学习路径推荐横幅"""
+    if not recommendation:
+        return ""
+    topic = recommendation.get("topic", "")
+    topic_line = f"  📚 主题：{topic}" if topic else ""
+    return f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🎯 学习路径推荐
+  「{recommendation.get('title', '')}」
+{topic_line}
+  💡 理由：{recommendation.get('reason', '')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
 
 
 def render_progress(stats: ProgressStats, folder_name: str = "") -> str:
@@ -62,6 +147,15 @@ def render_progress(stats: ProgressStats, folder_name: str = "") -> str:
         lines.append(f"  已消化 {stats.total_processed}/{stats.total_in_folder} 个视频")
     else:
         lines.append(f"\n  已消化 {stats.total_processed} 个视频")
+
+    # Topic 图谱
+    if stats.topic_stats and stats.topic_stats.get("total_topics", 0) > 0:
+        lines.append(f"\n  🧠 Topic 图谱：{stats.topic_stats['total_topics']} 个主题，{stats.topic_stats['total_videos']} 部视频")
+        top = stats.topic_stats.get("topic_list", [])[:5]
+        if top:
+            lines.append("  热门主题：")
+            for item in top:
+                lines.append(f"    · {item['name']} ({item['video_count']} 部)")
 
     # 体裁分布
     if stats.top_genres:
@@ -137,10 +231,19 @@ def _check_achievements(stats: ProgressStats) -> list[str]:
     if len(stats.genres) >= 8:
         achievements.append("🎯 全能选手 — 覆盖 8+ 种体裁")
 
+    # Topic 图谱成就
+    if stats.topic_stats.get("total_topics", 0) >= 10:
+        achievements.append("🗺️ 图谱构建者 — 建立 10+ Topic 知识图谱")
+
     return achievements
 
 
-def print_progress(memory: Memory, folder_name: str = "", total_in_folder: int = 0):
+def print_progress(
+    memory: Memory,
+    folder_name: str = "",
+    total_in_folder: int = 0,
+    data_dir: Path | None = None,
+):
     """直接打印进度"""
-    stats = calculate_progress(memory, total_in_folder)
+    stats = calculate_progress(memory, total_in_folder, data_dir)
     print(render_progress(stats, folder_name))

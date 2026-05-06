@@ -1,7 +1,7 @@
 ---
 name: bilibili-reader
 description: "B站收藏夹视频智能总结：随机选取收藏视频，阅读字幕/评论/弹幕，生成中英双语总结PDF"
-version: 1.0.0
+version: 2.0.0
 author: mistake-12
 license: MIT
 prerequisites:
@@ -19,7 +19,7 @@ prerequisites:
       help: "运行 python -m src --login，浏览器会自动打开B站，扫码后自动提取"
       required_for: "B站API认证"
   commands:
-    - pip install -r requirements.txt
+    - uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt
     - playwright install chromium
 metadata:
   hermes:
@@ -37,7 +37,7 @@ metadata:
     requires:
       bins:
         - python3
-        - pip
+        - uv
       env:
         - BILIBILI_SESSDATA
         - BILIBILI_BILI_JCT
@@ -68,6 +68,8 @@ metadata:
 - "扫码登录B站"
 - "看看我的考古进度"
 - "搜索我总结过的视频"
+- "搜索我之前总结的 xxx 内容"
+- "给我出几道测验题"
 
 ## Quick Reference
 
@@ -77,6 +79,8 @@ metadata:
 | `python -m src --login` | 首次配置向导（扫码登录 + 推送平台设置） |
 | `python -m src --config` | 修改配置（推送平台/推送目标，不动Cookie） |
 | `python -m src --progress` | 查看收藏夹考古进度 |
+| `python -m src --search <关键词>` | 搜索已总结的视频记录 |
+| `python -m src --stats` | 显示统计信息（已处理数量、体裁分布等） |
 | `python scripts/run_noninteractive.py <收藏夹名> latest` | 最新收藏的未处理视频（默认） |
 | `python scripts/run_noninteractive.py <收藏夹名> random` | 随机选一个未处理视频 |
 | `python scripts/run_noninteractive.py <收藏夹名> search <关键词>` | 搜索已总结记录和未处理视频 |
@@ -101,9 +105,9 @@ cd ~/.hermes/skills/media/bilibili-reader && python -m src --login
 3. 如果已登录 → 程序自动提取 Cookie
 4. Cookie 自动保存到 `.env` 文件
 
-**首次安装还需要运行：**
+**首次安装还需要运行（Hermes 沙箱环境必须用 uv）：**
 ```bash
-pip install -r requirements.txt
+uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt
 playwright install chromium
 ```
 
@@ -173,25 +177,77 @@ cd ~/.hermes/skills/media/bilibili-reader && python scripts/render_pdf.py /tmp/s
 
 ### 总结 JSON 输出格式
 
-Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tmp/summary.json`）：
+Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tmp/summary.json`）。
+
+**★ v2.0 核心变更：双视角结构**
+- `my_analysis`：我的解读（认知层）—— 核心概念的定义、原理、类比、洞察
+- `video_transcript`：视频完整陈述（内容层）—— 按时间顺序的详细记录
 
 ```json
 {
   "bvid": "视频BV号（从fetch_data输出中获取）",
-  "title_cn": "中文标题",
+  "title_cn": "中文标题（可对原标题做提炼或意译）",
   "title_en": "English title",
   "owner": "UP主名称",
   "duration_str": "时长格式化 如 23:45",
   "view_count": 12345,
   "like_count": 678,
   "genre": "体裁显示名 如 💻 技术教程与实操",
+  "genre_list": ["💻 技术教程与实操", "🔬 硬核科普"],
+
   "tldr_cn": "一句话中文总结（50字内）",
   "tldr_en": "One-sentence TL;DR (under 50 words)",
+
+  "my_analysis": {
+    "overview": "对本视频的整体解读：核心主题、UP主教学风格、概念之间的逻辑关系（150-200字）",
+    "concepts": [
+      {
+        "name": "核心概念名称",
+        "definition": "概念的精确定义，用一句话说明它是什么（50-80字）",
+        "principle": "理论阐述：深入讲解这个概念的工作机制/运行原理。必须覆盖：1) 从输入到输出的完整过程 2) 核心组成部分及职责 3) 为什么会这样设计 4) 与相近概念的本质区别。450-550字，纯理论无类比。",
+        "analogy": {
+          "scenario": "生活场景描述（50-80字）",
+          "mapping": "类比映射：A对应B的句式逐条列出对应关系（50-80字）",
+          "limitation": "类比局限性：哪些方面无法解释（30-50字）"
+        },
+        "insight": "个人洞察：对原理的新理解、与已知知识的联系、反直觉点（100-150字）",
+        "layer": "concept（原理性） | operation（操作工具性）"
+      }
+    ],
+    "operations": [
+      {
+        "step": "步骤名称",
+        "description": "详细操作步骤：点击/输入什么、为什么这样操作、期望结果（100-150字）",
+        "expected_result": "验证方法：如何判断这一步做对了（50-80字）",
+        "pitfall": "避坑提示：最容易犯的错误及如何避免（50-80字）"
+      }
+    ],
+    "thinking_questions": [
+      {
+        "question": "开放性问题（30-50字）",
+        "hint": "思考方向提示（30-50字）"
+      }
+    ]
+  },
+
+  "video_transcript": {
+    "outline": "视频整体结构/逻辑框架（100-150字）",
+    "segments": [
+      {
+        "time_range": "0:00-5:30",
+        "title": "本段主题",
+        "content": "按时间顺序详细记录UP主的核心观点、关键论断、重要数据/案例。保留叙述逻辑链条。300-500字"
+      }
+    ],
+    "up_main_insights": "UP主在视频中直接表达的核心洞察/金句（原话引用）",
+    "up_main_credibility": "对UP主背景和视频信息可靠性的评估"
+  },
+
   "summary_cn": "中文摘要 300-500字，讲明白具体做了什么、核心结论",
   "summary_en": "English summary 200-400 words",
-  "key_points_cn": ["要点1", "要点2", "要点3", "要点4", "要点5"],
-  "key_points_en": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
-  "prerequisites_cn": "前置知识",
+  "key_points_cn": ["要点1（具体、可操作）", "要点2", "要点3", "要点4", "要点5"],
+  "key_points_en": ["Key point 1", "Key point 2", "Key point 3", "Key point 4", "Key point 5"],
+  "prerequisites_cn": "前置知识（具体列出）",
   "prerequisites_en": "Prerequisites",
   "difficulty_cn": "难度：入门/进阶/高级 + 理由",
   "difficulty_en": "Difficulty level + why",
@@ -203,7 +259,8 @@ Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tm
   "insights_en": "Deep insights 100-200 words",
   "top_comments": [{"user": "用户名", "content_cn": "评论内容", "likes": 123}],
   "recommendation_cn": "推荐理由 50-100字",
-  "recommendation_en": "Recommendation 50-100 words"
+  "recommendation_en": "Recommendation 50-100 words",
+  "quizzes": [{"question_cn": "题目", "options_cn": ["A. 选项1", "B. 选项2", "C. 选项3", "D. 选项4"], "answer": "B", "difficulty": "medium"}]
 }
 ```
 
@@ -224,7 +281,11 @@ Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tm
 
 ### 体裁判断规则
 
-根据视频标题、简介、字幕前 500 条内容判断：
+**优先使用 intent_router.py 的 ROUTER_PROMPT（LLM 判断，支持多体裁）**
+
+代码中的 `classify_genre_multi()` 会调用 LLM 自动判断视频体裁，返回置信度 >= 0.7 的所有匹配体裁。这是最可靠的方式。
+
+关键词规则仅作为 fallback（当 LLM 不可用时）：
 
 1. **技术教程** — 标题/内容含：编程语言名、框架名、工具名、"教程"/"入门"/"实战"/"配置"/"搭建"
 2. **学科教育** — 标题/内容含：考研/四六级/公考/大学/课程/考试/知识点/公式
@@ -245,19 +306,40 @@ PDF文件输出在 `output/` 目录，文件名格式：
 20260504_120000_BV1xx411c7mD_视频标题.pdf
 ```
 
-### Step 5: 推送到聊天平台（可选）
+### Step 5: 推送指令（可选）
 
-在 `.env` 中配置 `DELIVERY_PLATFORM` 后，程序会输出 `[DELIVERY]` 标记的推送指令。
-
-**Agent 行为规则：** 当你看到输出中包含 `[DELIVERY]` 标记时，请执行以下操作：
+**Agent 行为规则：** 当程序输出中包含 `[DELIVERY]` 标记时，请执行以下操作：
 
 1. 读取 `[DELIVERY]` 指令中的平台、目标、文件路径和消息内容
 2. 使用你内置的消息投递能力，将 PDF 文件发送到对应平台
 3. 附带一句话 TLDR 摘要作为消息正文
 
-支持的平台：`wechat`（微信）/ `feishu`（飞书）/ `telegram` / `discord` / `slack` / `whatsapp`
+## Configuration
 
-配置方式：
+### B站 Cookie 配置
+
+首次使用需要配置 B站 Cookie：
+
+```bash
+python -m src --login
+```
+
+这会启动扫码登录向导，自动获取并保存 Cookie。
+
+### 推送平台配置（可选）
+
+支持在生成 PDF 后自动推送到聊天平台：
+
+| 平台 | 配置值 |
+|------|--------|
+| 微信 | `wechat` |
+| 飞书 | `feishu` |
+| Telegram | `telegram` |
+| Discord | `discord` |
+| Slack | `slack` |
+| WhatsApp | `whatsapp` |
+| 不推送 | `none` |
+
 ```bash
 # 方式一：配置向导（推荐）
 python -m src --config
@@ -266,7 +348,82 @@ python -m src --config
 DELIVERY_PLATFORM=wechat
 ```
 
-推送目标由 agent 默认对话决定，不需要额外配置。如果不配置或设为 `none`，则只在本地生成 PDF，不推送。
+推送目标由 agent 默认对话决定，不需要额外配置。
+
+## 新增功能模块
+
+### Cookie 健康检查（cookie_manager.py）
+
+程序启动时自动检查 Cookie 有效性：
+- 检测 `BILIBILI_SESSDATA` 是否存在
+- 调用 `/x/web-interface/nav` API 验证登录状态
+- Cookie 过期时打印警告信息，提示用户重新扫码登录
+
+```python
+from src.cookie_manager import CookieManager
+
+manager = CookieManager()
+status = manager.check_health()
+if not status.valid:
+    print(f"Cookie无效: {status.error_message}")
+```
+
+### 向量搜索（vector_store.py）
+
+可选功能，需要安装 `pip install chromadb`。
+
+功能：
+- 将视频总结向量化存储到 ChromaDB
+- 混合搜索：向量语义 + 关键词，合并排序
+- 懒加载：ChromaDB 不可用时自动降级到纯关键词搜索
+
+```python
+from src.vector_store import VectorStore
+
+store = VectorStore(data_dir=Path("./data"))
+results = store.search("Python异步编程", top_k=5)
+```
+
+### 理解度测验（quiz_generator.py）
+
+自动生成选择题和简答题，验证学习效果：
+
+```python
+from src.quiz_generator import generate_quizzes_from_summary
+
+quizzes = generate_quizzes_from_summary(
+    summary=video_summary,
+    count=3,
+    llm_caller=your_llm_function
+)
+```
+
+### Topic 知识图谱（topic_graph.py）
+
+基于前置知识推荐学习路径：
+- 从已处理视频的总结中提取 Topic 标签
+- 维护 Topic 依赖关系（前置知识 → topic）
+- 智能推荐下一个最值得学习的视频
+
+```python
+from src.topic_graph import TopicGraph, load_or_build_graph
+
+graph = load_or_build_graph(data_dir)
+path = graph.get_learning_path(
+    mastered_bvids={已掌握的bvid列表},
+    candidate_bvids={待学习的bvid列表},
+    max_results=5
+)
+```
+
+### PDF 模板组件（templates/components/）
+
+新增多个专用模板组件：
+- `_genre_*.html` — 各体裁专用内容展示
+- `_quiz.html` — 理解度测验题目
+- `_thinking.html` — 思考题
+- `_concept_block.html` — 核心概念展示
+- `_my_analysis.html` — 我的解读（v2.0 新增）
 
 ## Pitfalls
 
@@ -327,7 +484,7 @@ DELIVERY_PLATFORM=wechat
 |------|------|
 | < 30分钟 | 字幕概括后直接总结（不送完整原文） |
 | 30-60分钟 | 分段+重叠区（每段10分钟，重叠60秒），每段概括后合并总结 |
-| > 60分钟 | 同上，但先警告处理时间较长 |
+| > 60分钟 | 警告用户，停止处理，或者直接跳过这个视频处理下个视频 |
 
 - **重叠区作用**：防止一句话被生硬劈成两半导致上下文断裂
 - **分段概括**：每段独立提炼关键信息，保留技术术语和操作步骤
@@ -363,7 +520,14 @@ DELIVERY_PLATFORM=wechat
 4. **输出验证**：`output/` 目录应生成PDF文件
 5. **记忆验证**：再次运行应跳过已处理的视频
 
-测试命令：
+**可选功能验证（需安装 ChromaDB）：**
+```bash
+# 验证向量搜索功能
+python -m src --stats
+# 应显示向量库统计信息
+```
+
+**测试命令：**
 ```bash
 hermes --toolsets skills -q "用bilibili-reader从收藏夹随机总结一个视频"
 ```

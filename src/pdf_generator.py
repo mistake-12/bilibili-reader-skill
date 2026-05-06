@@ -25,7 +25,10 @@ def generate_pdf(summary: VideoSummary, output_dir: Path, bvid: str = "", progre
     env = Environment(loader=FileSystemLoader(str(template_dir)))
     template = env.get_template("summary.html")
 
-    # 渲染HTML
+    # ── v2.0 新增字段（dataclass → dict）──
+    my_analysis_dict = summary.my_analysis.to_dict() if hasattr(summary.my_analysis, "to_dict") else {}
+    video_transcript_dict = summary.video_transcript.to_dict() if hasattr(summary.video_transcript, "to_dict") else {}
+
     html_content = template.render(
         title_cn=summary.title_cn,
         title_en=summary.title_en,
@@ -36,6 +39,7 @@ def generate_pdf(summary: VideoSummary, output_dir: Path, bvid: str = "", progre
         genre=summary.genre,
         tldr_cn=summary.tldr_cn,
         tldr_en=summary.tldr_en,
+        # ── 原有字段 ──
         summary_cn=summary.summary_cn,
         summary_en=summary.summary_en,
         key_points_cn=summary.key_points_cn,
@@ -69,6 +73,11 @@ def generate_pdf(summary: VideoSummary, output_dir: Path, bvid: str = "", progre
         key_quotes=summary.key_quotes,
         materials_list=summary.materials_list,
         related_topics_cn=summary.related_topics_cn,
+        # ── v2.0 新增字段 ──
+        my_analysis=my_analysis_dict,
+        video_transcript=video_transcript_dict,
+        quizzes=summary.quizzes if hasattr(summary, "quizzes") else [],
+        thinking_questions=summary.thinking_questions if hasattr(summary, "thinking_questions") else [],
         progress_text=progress_text,
     )
 

@@ -17,10 +17,61 @@ skill_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(skill_dir))
 
 from src.config import Config
-from src.summarizer import VideoSummary
+from src.summarizer import VideoSummary, MyAnalysis, VideoTranscript, ConceptBlock, OperationStep, ThinkingQuestion, TranscriptSegment
 from src.pdf_generator import generate_pdf
 from src.memory import Memory
 from src.progress import calculate_progress, render_mini_progress
+
+
+def _parse_nested(data: dict):
+    """将嵌套的 JSON dict 转为 dataclass"""
+    # my_analysis
+    ma_data = data.get("my_analysis") or {}
+    my_analysis = MyAnalysis(
+        overview=ma_data.get("overview", ""),
+        concepts=[
+            ConceptBlock(
+                name=c.get("name", ""),
+                definition=c.get("definition", ""),
+                principle=c.get("principle", ""),
+                analogy=c.get("analogy", {}) or {},
+                insight=c.get("insight", ""),
+                layer=c.get("layer", ""),
+            )
+            for c in ma_data.get("concepts", [])
+        ],
+        operations=[
+            OperationStep(
+                step=o.get("step", ""),
+                description=o.get("description", ""),
+                expected_result=o.get("expected_result", ""),
+                pitfall=o.get("pitfall", ""),
+            )
+            for o in ma_data.get("operations", [])
+        ],
+        thinking_questions=[
+            ThinkingQuestion(question=q.get("question", ""), hint=q.get("hint", ""))
+            for q in ma_data.get("thinking_questions", [])
+        ],
+    )
+
+    # video_transcript
+    vt_data = data.get("video_transcript") or {}
+    video_transcript = VideoTranscript(
+        outline=vt_data.get("outline", ""),
+        segments=[
+            TranscriptSegment(
+                time_range=s.get("time_range", ""),
+                title=s.get("title", ""),
+                content=s.get("content", ""),
+            )
+            for s in vt_data.get("segments", [])
+        ],
+        up_main_insights=vt_data.get("up_main_insights", ""),
+        up_main_credibility=vt_data.get("up_main_credibility", ""),
+    )
+
+    return my_analysis, video_transcript
 
 
 def main():
@@ -45,7 +96,24 @@ def main():
         print(f"错误: JSON 解析失败 {e}", file=sys.stderr)
         sys.exit(1)
 
-    # 构建 VideoSummary
+    my_analysis, video_transcript = _parse_nested(data)
+
+    # 兼容处理：top_comments 中的 content → content_cn
+    # 确保与 PDF 模板中的 comment.content_cn 一致
+    raw_comments = data.get("top_comments", [])
+    processed_comments = []
+    for c in raw_comments:
+        if isinstance(c, dict):
+            # 如果有 content 但没有 content_cn，补充 content_cn
+            if "content" in c and "content_cn" not in c:
+                c = dict(c)  # 不修改原数据
+                c["content_cn"] = c["content"]
+            processed_comments.append(c)
+        else:
+            processed_comments.append(c)
+    data["top_comments"] = processed_comments
+
+    # 构建 VideoSummary（包含 v2.0 字段）
     summary = VideoSummary(
         title_cn=data.get("title_cn", ""),
         title_en=data.get("title_en", ""),
@@ -93,6 +161,10 @@ def main():
         view_count=data.get("view_count", 0),
         like_count=data.get("like_count", 0),
         genre=data.get("genre", ""),
+        genre_list=data.get("genre_list", []),
+        my_analysis=my_analysis,
+        video_transcript=video_transcript,
+        quizzes=data.get("quizzes", []),
     )
 
     Config.ensure_dirs()

@@ -63,6 +63,26 @@
 
 </td>
 </tr>
+<tr>
+<td align="center">
+
+### 📚 Topic 依赖图（v2.0）
+自动提取核心概念，建立学习路径依赖关系
+
+</td>
+<td align="center">
+
+### 🔍 ChromaDB 语义搜索（v2.0）
+向量搜索理解语义，精准找到相关内容
+
+</td>
+<td align="center">
+
+### 🎯 学习路径推荐（v2.0）
+替代随机选择，基于知识图谱推荐下一个视频
+
+</td>
+</tr>
 </table>
 
 </div>
@@ -155,7 +175,10 @@ python scripts/run_noninteractive.py 代码 latest
 # 随机选一个未处理的视频
 python scripts/run_noninteractive.py 代码 random
 
-# 搜索已总结的记录
+# 语义搜索已总结的记录（需安装 chromadb）
+python -m src --search python
+
+# 搜索已总结的记录（纯关键词）
 python scripts/run_noninteractive.py 代码 search python
 
 # 查看考古进度
@@ -177,6 +200,8 @@ python -m src --config
   意图路由：判断视频体裁（10 种类型）
      ↓
   体裁专用提示词 → LLM 生成结构化总结
+     ↓
+  ★ v2.0：Topic 图谱注册 + 向量化存储
      ↓
   PDF 渲染 + 考古进度更新 + 平台推送
 ```
@@ -204,6 +229,44 @@ python -m src --config
 
 ---
 
+## v2.0 新功能
+
+### ChromaDB 语义搜索
+
+处理视频时自动向量化存入本地向量库，支持语义相似搜索：
+
+```
+你：搜索我之前总结过的关于 Docker 的内容
+Agent：找到 2 个相关内容：
+       [技术教程] Docker 从入门到实践
+       [技术教程] Docker Compose 实战
+```
+
+不安装 `chromadb` 也不影响核心功能，只是搜索降级为关键词匹配。
+
+**安装方式：**
+```bash
+pip install chromadb>=0.4.0
+```
+
+### Topic 依赖图
+
+自动从视频总结中提取核心概念作为 Topic 标签，维护 Topic 间的依赖关系，推荐满足前置知识的视频：
+
+```
+📚 基于知识图谱推荐: Python 异步编程完全指南
+   💡 前置知识已满足，可直接学习
+```
+
+### 学习路径推荐
+
+替代随机选择，优先级：
+1. Topic 依赖图满足 → 前置已掌握
+2. ChromaDB 语义相似 → 与已看视频主题相关
+3. 随机 fallback → 任何状态都有结果
+
+---
+
 ## 收藏夹考古
 
 每次运行后自动展示进度：
@@ -216,6 +279,11 @@ python -m src --config
 
   ████████████░░░░░░░░  40%
   已消化 12/30 个视频
+
+  🧠 Topic 图谱：8 个主题，12 部视频
+  热门主题：
+    · Python 异步编程 (3 部)
+    · Docker 容器化 (2 部)
 
   📊 知识图谱:
     💻 技术教程与实操   ███████████████ 8
@@ -236,12 +304,13 @@ python -m src --config
 | 5 | 🔍 考古新手 | 100 | 👑 收藏夹征服者 |
 | 10 | ⛏️ 考古学徒 | 5+ 体裁 | 🌈 博览群书 |
 | 25 | 🗺️ 地图绘制者 | 8+ 体裁 | 🎯 全能选手 |
+| 10+ Topic | 🗺️ 图谱构建者 | | |
 
 ---
 
 ## 配置
 
-Agent 安装后会自动引导配置。如需手动修改，请打开网页版B站登录账号，F12进入开发者模式在上方“应用程序”→“cookies”复制粘贴下列的值，在编辑项目根目录的 `.env` 文件：
+Agent 安装后会自动引导配置。如需手动修改，请打开网页版B站登录账号，F12进入开发者模式在上方"应用程序"→"cookies"复制粘贴下列的值，在编辑项目根目录的 `.env` 文件：
 ```env
 # B站Cookie（Agent 安装时通过之后的扫码登录获取）
 BILIBILI_SESSDATA=xxx
@@ -268,20 +337,28 @@ bilibili-reader-skill/
 │   ├── auth.py            # 扫码登录
 │   ├── bilibili_api.py    # B站API封装
 │   ├── config.py          # 配置管理
-│   ├── intent_router.py   # 10种体裁提示词
-│   ├── main.py            # 交互式主入口
-│   ├── memory.py          # 长期记忆系统
+│   ├── intent_router.py   # ★ v2.0：统一基座 + 多体裁路由
+│   ├── main.py            # 主入口 + CLI 参数
+│   ├── summarizer.py      # ★ v2.0：VideoSummary 扩展
 │   ├── pdf_generator.py   # PDF生成
-│   ├── progress.py        # 考古进度可视化
-│   ├── setup.py           # 配置向导
-│   └── summarizer.py      # LLM总结核心
+│   ├── memory.py          # 已处理视频记录
+│   ├── cookie_manager.py  # ★ 新增：Cookie 健康检查
+│   ├── topic_graph.py     # ★ 新增：Topic 依赖图 + 学习路径
+│   ├── quiz_generator.py  # ★ 新增：理解度测验生成
+│   ├── vector_store.py    # ★ 新增：ChromaDB 封装 + 混合搜索
+│   ├── progress.py        # ★ v2.0：学习路径推荐
+│   └── setup.py           # 配置向导
 ├── scripts/
 │   └── run_noninteractive.py  # 非交互入口
 ├── templates/
 │   └── summary.html       # PDF模板
+├── data/
+│   ├── processed.json       # 已处理视频记录
+│   ├── topic_graph.json     # ★ v2.0 新增：Topic 依赖图
+│   └── chroma_db/           # ★ v2.0 新增：ChromaDB 向量存储
 ├── SKILL.md               # AgentSkills 入口文件
 ├── .env.example           # 配置模板
-└── requirements.txt
+└── requirements.txt       # ★ v2.0 新增 chromadb 依赖
 ```
 
 ---
@@ -298,6 +375,20 @@ bilibili-reader-skill/
 | 其他 Agent | 遵循 [AgentSkills.io](https://agentskills.io) 标准，直接放入 skills 目录 |
 
 </div>
+
+---
+
+## v2.0 升级说明
+
+| 升级项 | 原版 | v2.0 |
+|-------|------|------|
+| 提示词模板 | 10 套独立模板 | 1 套基座 + 9 份体裁增强 |
+| 视频分类 | 单体裁 | 多体裁（自动合并渲染） |
+| PDF 结构 | 单视角总结 | 双视角（我的解读 + 视频陈述） |
+| 视频推荐 | 随机选择 | Topic 图谱 > 语义相似 > 随机 |
+| 搜索能力 | 关键词匹配 | ChromaDB 语义搜索 + 关键词混合 |
+| Cookie 管理 | 无 | 健康检查 + 过期告警 |
+| 测验生成 | 无 | 基于总结内容自动生成 |
 
 ---
 

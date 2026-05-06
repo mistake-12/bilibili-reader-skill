@@ -1,0 +1,11 @@
+{# ── 避坑指南 ── #}
+{% if pitfalls_cn %}
+<div class="section">
+    <h3 class="section-title">⚠️ 避坑指南</h3>
+    <ul class="key-points">
+        {% for pitfall in pitfalls_cn %}
+        <li>{{ pitfall }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}

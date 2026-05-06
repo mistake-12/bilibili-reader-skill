@@ -1,462 +1,1613 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="收藏了不看？让 AI 帮你做视频笔记 — bilibili-reader skill 演示">
-    <title>收藏了不看？让 AI 帮你做视频笔记</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        /* ── Viewport Base ── */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; overflow-x: hidden; overscroll-behavior: none; }
-        html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
-        .slide {
-            width: 100vw; height: 100vh; height: 100dvh;
-            overflow: hidden; scroll-snap-align: start; scroll-snap-stop: always;
-            display: flex; flex-direction: column; position: relative; user-select: none;
-        }
-        .slide-content, .slide-content * { user-select: text; }
-        .slide-content {
-            flex: 1; display: flex; flex-direction: column; justify-content: center;
-            max-height: 100%; overflow: hidden;
-            padding: clamp(1rem, 4vw, 4rem); gap: clamp(0.5rem, 2vw, 2rem);
-            position: relative; z-index: 1;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bilibili-reader - 让收藏变成知识</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
 
-        /* ── Design Tokens ── */
-        :root {
-            --bg: #0a0f1c; --surface: #0d1529; --surface-2: #1e2d4a;
-            --border: rgba(255,255,255,0.08); --text: #e8f4fd; --text-muted: #94a3b8;
-            --accent: #00a1d6; --accent-2: #fb7299; --glow: 0 0 40px rgba(0,161,214,0.35);
-            --font-display: 'Syne', 'Noto Sans SC', sans-serif;
-            --font-body: 'Noto Sans SC', 'Syne', sans-serif;
-            --title-size: clamp(1.5rem, 5vw, 4rem);
-            --h2-size: clamp(1.25rem, 3.5vw, 2.5rem);
-            --body-size: clamp(0.75rem, 1.5vw, 1.125rem);
-            --small-size: clamp(0.65rem, 1vw, 0.875rem);
-        }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+    html, body {
+      overflow: hidden;
+      height: 100%;
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
 
-        /* ── Grid Overlay ── */
-        .slide-bg {
-            position: absolute; inset: 0; z-index: 0; pointer-events: none;
-            background-image:
-                linear-gradient(rgba(0,161,214,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,161,214,0.03) 1px, transparent 1px);
-            background-size: 60px 60px;
-        }
+    body {
+      background: #fef9e7;
+      background-image:
+        linear-gradient(rgba(255, 235, 150, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 235, 150, 0.4) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
 
-        /* ── Neon Glow Text ── */
-        .neon {
-            text-shadow: 0 0 10px rgba(0,161,214,0.5), 0 0 30px rgba(0,161,214,0.3), 0 0 60px rgba(0,161,214,0.15);
-        }
-        .neon-pink {
-            text-shadow: 0 0 10px rgba(251,114,153,0.5), 0 0 30px rgba(251,114,153,0.3);
-        }
+    /* Slide Container */
+    .slides-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
 
-        /* ── Typography ── */
-        h1 { font-family: var(--font-display); font-size: var(--title-size); line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; }
-        h2 { font-family: var(--font-display); font-size: var(--h2-size); line-height: 1.2; font-weight: 700; }
-        p, li { font-size: var(--body-size); line-height: 1.6; }
-        .label { font-size: clamp(0.6rem, 0.9vw, 0.75rem); letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
-        .subtitle { font-size: clamp(0.9rem, 2vw, 1.4rem); color: var(--text-muted); font-weight: 300; }
+    /* ========================================
+       SLIDE SYSTEM - State Machine CSS
+       ======================================== */
 
-        /* ── Stats ── */
-        .stat-number { font-family: var(--font-display); font-size: clamp(2.5rem, 8vw, 6rem); font-weight: 800; line-height: 1; }
-        .stat-label { font-size: var(--body-size); color: var(--text-muted); margin-top: 0.5em; }
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      /* Default state: completely invisible and non-interactive */
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      /* GSAP will handle transform, reset any CSS transitions */
+      transition: none;
+    }
 
-        /* ── Cards ── */
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(0.5rem, 1.5vw, 1rem); width: 100%; }
-        .card {
-            background: var(--surface); border: 1px solid var(--border);
-            border-radius: clamp(8px, 1vw, 16px); padding: clamp(0.75rem, 2vw, 2rem);
-            transition: all 0.3s ease;
-        }
-        .card:hover { border-color: var(--accent); box-shadow: var(--glow); transform: translateY(-2px); }
-        .card-icon { font-size: clamp(1.5rem, 3vw, 2.5rem); display: block; margin-bottom: 0.5em; }
-        .card-title { font-family: var(--font-display); font-size: clamp(0.85rem, 1.5vw, 1.1rem); font-weight: 700; margin-bottom: 0.3em; }
-        .card-body { font-size: var(--small-size); color: var(--text-muted); line-height: 1.5; }
+    /* Entry state: prepared but invisible (for the incoming slide) */
+    .slide.is-entering {
+      visibility: visible;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(60px);
+    }
 
-        /* ── Terminal ── */
-        .terminal {
-            background: #0d1117; border: 1px solid var(--border); border-radius: 12px;
-            overflow: hidden; max-width: min(90vw, 700px); box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-        .terminal-bar {
-            display: flex; gap: 6px; padding: 10px 14px; background: #161b22;
-        }
-        .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .terminal-dot.r { background: #ff5f56; } .terminal-dot.y { background: #ffbd2e; } .terminal-dot.g { background: #27c93f; }
-        .terminal-body { padding: 16px 20px; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: clamp(0.65rem, 1.2vw, 0.9rem); line-height: 1.7; }
-        .terminal-body .prompt { color: var(--accent); }
-        .terminal-body .output { color: var(--text-muted); }
-        .terminal-body .success { color: #27c93f; }
-        .terminal-body .highlight { color: var(--accent-2); }
+    /* Active state: fully visible */
+    .slide.is-active {
+      visibility: visible;
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateY(0);
+      z-index: 10;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
 
-        /* ── Progress Bar ── */
-        .progress-bar {
-            position: fixed; top: 0; left: 0; height: 3px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-2));
-            transition: width 0.3s ease; z-index: 101;
-        }
+    /* Exit state: animating out */
+    .slide.is-leaving {
+      visibility: visible;
+      pointer-events: none;
+      opacity: 1;
+      transform: translateY(0);
+      z-index: 5;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
 
-        /* ── Nav Dots ── */
-        .nav-dots {
-            position: fixed; right: clamp(0.75rem, 2vw, 1.5rem); top: 50%;
-            transform: translateY(-50%); display: flex; flex-direction: column;
-            gap: 0.5rem; z-index: 100;
-        }
-        .nav-dot {
-            width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-            opacity: 0.3; cursor: pointer; transition: all 0.3s ease; border: none; padding: 0;
-        }
-        .nav-dot.active, .nav-dot:hover { opacity: 1; transform: scale(1.3); }
+    /* Hidden state: completely invisible (ready to be activated again) */
+    .slide.is-hidden {
+      visibility: hidden;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-60px);
+      z-index: 1;
+    }
 
-        /* ── Keyboard Hint ── */
-        .keyboard-hint {
-            position: fixed; bottom: clamp(0.5rem, 1.5vh, 1rem); left: 50%;
-            transform: translateX(-50%); font-size: var(--small-size);
-            opacity: 0.3; pointer-events: none; z-index: 99; white-space: nowrap;
-        }
+    /* ========================================
+       SLIDE CONTENT ANIMATIONS
+       ======================================== */
 
-        /* ── Entrance Animations ── */
-        .enter-fade-up { opacity: 0; transform: translateY(30px); animation: fadeUp 0.6s ease forwards; animation-delay: var(--delay, 0s); }
-        .enter-scale-in { opacity: 0; transform: scale(0.9); animation: scaleIn 0.5s ease forwards; animation-delay: var(--delay, 0s); }
-        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
-        @keyframes scaleIn { to { opacity: 1; transform: scale(1); } }
+    /* Initial state for animated elements */
+    .slide-content-animate {
+      opacity: 0;
+      transform: translateY(20px);
+    }
 
-        /* ── CTA Button ── */
-        .cta {
-            display: inline-block; padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(1.5rem, 3vw, 2.5rem);
-            background: linear-gradient(135deg, var(--accent), var(--accent-2));
-            color: #fff; font-weight: 700; font-size: clamp(0.8rem, 1.5vw, 1.1rem);
-            border-radius: 50px; text-decoration: none; transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0,161,214,0.3);
-        }
-        .cta:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,161,214,0.5); }
+    .slide.is-active .slide-content-animate {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
 
-        /* ── Bullet List ── */
-        .bullet-list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.4rem, 1vh, 1rem); }
-        .bullet-list li { display: flex; align-items: flex-start; gap: 0.5em; }
-        .bullet-icon { color: var(--accent); font-weight: bold; flex-shrink: 0; }
+    .slide.is-leaving .slide-content-animate,
+    .slide.is-entering .slide-content-animate,
+    .slide.is-hidden .slide-content-animate {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: none;
+    }
 
-        /* ── Pulse Ring ── */
-        .pulse-ring {
-            position: absolute; border-radius: 50%; border: 1px solid var(--accent);
-            opacity: 0; animation: pulseOut 3s ease-out infinite;
-        }
-        @keyframes pulseOut { 0% { transform: scale(0.5); opacity: 0.5; } 100% { transform: scale(2.5); opacity: 0; } }
+    /* Stagger delays for child elements */
+    .slide.is-active .stagger-1 { transition-delay: 0.1s; }
+    .slide.is-active .stagger-2 { transition-delay: 0.2s; }
+    .slide.is-active .stagger-3 { transition-delay: 0.3s; }
+    .slide.is-active .stagger-4 { transition-delay: 0.4s; }
+    .slide.is-active .stagger-5 { transition-delay: 0.5s; }
+    .slide.is-active .stagger-6 { transition-delay: 0.6s; }
 
-        /* ── Reduced Motion ── */
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
-        }
-        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
-        @media (max-height: 700px) { :root { --title-size: clamp(1.25rem, 4.5vw, 2.5rem); } }
-    </style>
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+      border: 3px solid #1a1a1a;
+    }
+
+    /* Cycle boxes */
+    .cycle-box {
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+      color: white;
+      font-weight: 700;
+      text-align: center;
+      border: 3px solid rgba(255,255,255,0.3);
+    }
+
+    /* Feature cards */
+    .feature-card {
+      background: white;
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      border: 3px solid #1a1a1a;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+
+    .icon-circle {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .step-number {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin: 0.25rem;
+    }
+
+    /* Explosion particles */
+    .particle {
+      position: fixed;
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: white;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    /* Progress ring */
+    .progress-ring {
+      width: 200px;
+      height: 200px;
+      position: relative;
+    }
+
+    .progress-ring svg {
+      transform: rotate(-90deg);
+    }
+
+    .progress-ring circle {
+      fill: none;
+      stroke-width: 14;
+    }
+
+    /* Timeline */
+    .timeline-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
+    }
+
+    .timeline-line {
+      width: 4px;
+      background: linear-gradient(to bottom, #667eea, #764ba2, #3498db, #27ae60);
+      border-radius: 2px;
+      margin-left: 29px;
+    }
+
+    /* Deploy cards */
+    .deploy-card {
+      background: white;
+      border-radius: 24px;
+      padding: 2rem;
+      border: 3px solid #1a1a1a;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+
+    .code-block {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      font-family: 'Monaco', 'Consolas', monospace;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 50px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn-green {
+      background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+    }
+
+    .highlight {
+      background: linear-gradient(transparent 60%, #ffeaa7 60%);
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(var(--rotate, 0deg)); }
+      50% { transform: translateY(-15px) rotate(var(--rotate, 0deg)); }
+    }
+
+    .float {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .section-title {
+      font-size: 3.5rem;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-subtitle {
+      font-size: 1.5rem;
+      color: #666;
+      margin-bottom: 2rem;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-10px); }
+    }
+  </style>
 </head>
 <body>
-    <div class="progress-bar" id="progressBar"></div>
-    <nav class="nav-dots" id="navDots"></nav>
-    <p class="keyboard-hint" aria-hidden="true">↑↓ 或滚轮导航 · F 全屏</p>
+  <!-- Slides Container -->
+  <div class="slides-container" id="slidesContainer">
 
-    <!-- ═══════ SLIDE 1: HOOK ═══════ -->
-    <section class="slide" id="slide-1" data-slide-index="0">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center; text-align:center;">
-            <div class="enter-fade-up">
-                <p class="stat-number neon" style="color: var(--accent-2);">347</p>
-                <p class="stat-label">你的B站收藏夹里，有 <strong>347</strong> 个视频</p>
-                <p class="stat-label" style="color: var(--accent-2); font-size: clamp(0.8rem, 1.6vw, 1.2rem); margin-top: 1rem;">
-                    你真正看完的，有几个？
-                </p>
-            </div>
+    <!-- Slide 1: Opening - Pain Point -->
+    <section class="slide is-active" id="slide1" data-title="痛点">
+      <div class="text-center max-w-4xl">
+        <div class="card inline-block mb-8" style="border-color: #1a1a1a;">
+          <p class="text-white font-black text-xl tracking-wider px-8 py-4" style="background: #1a1a1a; border-radius: 12px;">
+            FALSE HOPE CYCLE · 希望循环
+          </p>
         </div>
+
+        <h1 class="section-title mb-8">
+          你是不是也<br>
+          <span class="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent">收藏了很多视频</span><br>
+          但是不看？
+        </h1>
+
+        <p class="text-2xl text-gray-600 max-w-2xl mx-auto">
+          "收藏了 = 学会了"<br>
+          <span class="text-gray-400">这就是我们常说的"收藏焦虑"</span>
+        </p>
+
+        <!-- Fake favorites counter -->
+        <div class="fav-folder-container" id="favFolderContainer">
+          <!-- Flying files container -->
+          <div class="flying-files" id="flyingFiles"></div>
+
+          <!-- B站风格收藏夹图标 -->
+          <div class="fav-folder" id="favFolder">
+            <!-- Folder body -->
+            <svg width="200" height="180" viewBox="0 0 200 180" class="folder-svg">
+              <!-- Folder tab -->
+              <path d="M10 40 L10 25 Q10 20 15 20 L70 20 L85 40 L190 40 Q195 40 195 45 L195 150 Q195 155 190 155 L10 155 Q5 155 5 150 L5 45 Q5 40 10 40 Z" fill="#00A1D6" stroke="#00A1D6" stroke-width="3"/>
+              <!-- Inner shadow -->
+              <path d="M15 45 L15 30 Q15 25 20 25 L70 25 L82 42 L185 42 Q188 42 188 45 L188 145 Q188 148 185 148 L15 148 Q12 148 12 145 L12 45 Q12 42 15 45 Z" fill="#0090BB"/>
+              <!-- Paper inside -->
+              <rect x="25" y="50" width="150" height="90" rx="3" fill="white" opacity="0.9"/>
+              <!-- Lines on paper -->
+              <line x1="35" y1="65" x2="145" y2="65" stroke="#E0E0E0" stroke-width="2"/>
+              <line x1="35" y1="80" x2="145" y2="80" stroke="#E0E0E0" stroke-width="2"/>
+              <line x1="35" y1="95" x2="120" y2="95" stroke="#E0E0E0" stroke-width="2"/>
+              <line x1="35" y1="110" x2="100" y2="110" stroke="#E0E0E0" stroke-width="2"/>
+            </svg>
+
+            <!-- Counter badge -->
+            <div class="fav-badge" id="favBadge">0</div>
+
+            <!-- Swell overlay (appears when swelling) -->
+            <div class="folder-swell" id="folderSwell"></div>
+          </div>
+
+          <p class="text-gray-500 mt-4 font-semibold">收藏夹数量</p>
+        </div>
+
+        <style>
+          .fav-folder-container {
+            position: relative;
+            display: inline-block;
+          }
+
+          .fav-folder {
+            position: relative;
+            display: inline-block;
+          }
+
+          .folder-svg {
+            filter: drop-shadow(0 8px 20px rgba(0, 161, 214, 0.3));
+            transition: transform 0.3s ease;
+          }
+
+          .fav-folder:hover .folder-svg {
+            transform: scale(1.05);
+          }
+
+          /* Swell effect when receiving files */
+          .fav-folder.swelling .folder-svg {
+            animation: swell 0.3s ease;
+          }
+
+          @keyframes swell {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+          }
+
+          /* Badge counter */
+          .fav-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: linear-gradient(135deg, #FF6B6B, #FF4757);
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 900;
+            min-width: 70px;
+            height: 36px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.5);
+            border: 3px solid white;
+            z-index: 10;
+          }
+
+          /* Full/overflowing state */
+          .fav-folder.full .fav-badge {
+            background: linear-gradient(135deg, #FF4757, #C0392B);
+            animation: pulse-full 1s ease infinite;
+          }
+
+          @keyframes pulse-full {
+            0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(255, 71, 87, 0.5); }
+            50% { transform: scale(1.1); box-shadow: 0 6px 25px rgba(255, 71, 87, 0.8); }
+          }
+
+          /* Flying files container */
+          .flying-files {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 300px;
+            height: 250px;
+            pointer-events: none;
+            z-index: 5;
+          }
+
+          /* Individual flying file */
+          .flying-file {
+            position: absolute;
+            font-size: 1.5rem;
+            animation: flyIntoFolder 1.2s ease-in forwards;
+            opacity: 0;
+          }
+
+          @keyframes flyIntoFolder {
+            0% {
+              opacity: 1;
+              transform: translate(0, 0) rotate(0deg) scale(1);
+            }
+            50% {
+              opacity: 1;
+              transform: translate(var(--target-x), var(--target-y)) rotate(180deg) scale(1.1);
+            }
+            80% {
+              opacity: 1;
+              transform: translate(var(--target-x), var(--target-y)) rotate(360deg) scale(0.3);
+            }
+            100% {
+              opacity: 0;
+              transform: translate(var(--target-x), var(--target-y)) rotate(400deg) scale(0);
+            }
+          }
+
+          /* Overflow particles when full */
+          .overflow-particle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #FF4757;
+            border-radius: 2px;
+            animation: overflow-burst 1s ease-out forwards;
+          }
+
+          @keyframes overflow-burst {
+            0% {
+              opacity: 1;
+              transform: translate(0, 0) scale(1);
+            }
+            100% {
+              opacity: 0;
+              transform: translate(var(--burst-x), var(--burst-y)) scale(0);
+            }
+          }
+        </style>
+      </div>
     </section>
 
-    <!-- ═══════ SLIDE 2: PAIN ═══════ -->
-    <section class="slide" id="slide-2" data-slide-index="1">
-        <div class="slide-bg"></div>
-        <div class="slide-content">
-            <h2 class="enter-fade-up" style="margin-bottom: 1rem;">每个B站用户都有的<span style="color: var(--accent-2);">「收藏焦虑」</span></h2>
-            <ul class="bullet-list">
-                <li class="enter-fade-up" style="--delay:0.1s"><span class="bullet-icon">→</span>看到好视频 → 收藏 → "以后再看" → 再也没看</li>
-                <li class="enter-fade-up" style="--delay:0.2s"><span class="bullet-icon">→</span>收藏夹从 50 个涨到 500 个，焦虑感越来越强</li>
-                <li class="enter-fade-up" style="--delay:0.3s"><span class="bullet-icon">→</span>想看但没时间，23 分钟的视频太长了</li>
-                <li class="enter-fade-up" style="--delay:0.4s"><span class="bullet-icon">→</span>收藏了 = 学会了？不，你只是收藏了</li>
+    <!-- Slide 2: What is Collection Anxiety -->
+    <section class="slide is-hidden" id="slide2" data-title="什么是收藏焦虑">
+      <div class="max-w-5xl w-full">
+        <div class="text-center mb-12">
+          <h1 class="section-title">
+            什么是<br>
+            <span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">收藏焦虑？</span>
+          </h1>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="card text-center">
+            <div class="text-5xl mb-4">📚</div>
+            <h3 class="font-bold text-xl mb-2">收藏 = 囤积</h3>
+            <p class="text-gray-600">疯狂收藏教程，以为存下来就是学会了</p>
+          </div>
+
+          <div class="card text-center">
+            <div class="text-5xl mb-4">💭</div>
+            <h3 class="font-bold text-xl mb-2">收藏 = 幻觉</h3>
+            <p class="text-gray-600">看到"已收藏"就产生了掌握的错觉</p>
+          </div>
+
+          <div class="card text-center">
+            <div class="text-5xl mb-4">🚫</div>
+            <h3 class="font-bold text-xl mb-2">收藏 = 从不看</h3>
+            <p class="text-gray-600">永远躺在收藏夹里吃灰，再也不会打开</p>
+          </div>
+        </div>
+
+        <div class="mt-12 text-center">
+          <div class="inline-block bg-red-100 rounded-2xl px-8 py-4 border-2 border-red-300">
+            <p class="text-red-600 font-bold text-xl">
+              ❌ 收藏了100个视频<br>
+              ↓<br>
+              实际学习了0个
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: The Problem Gets Worse -->
+    <section class="slide is-hidden" id="slide3" data-title="问题加剧">
+      <div class="max-w-4xl w-full text-center">
+        <h1 class="section-title">
+          而且...<br>
+          <span class="text-gray-400">收藏越多，问题越严重</span>
+        </h1>
+
+        <div class="relative h-80 mt-12">
+          <!-- Arrow pointing down -->
+          <div class="absolute left-1/2 top-0 -translate-x-1/2 text-6xl text-gray-300">↓</div>
+
+          <!-- Problem boxes -->
+          <div class="absolute left-0 top-20 cycle-box" style="background: #3498db;">
+            收藏夹 +1
+          </div>
+          <div class="absolute right-0 top-20 cycle-box" style="background: #e74c3c;">
+            学习动力 -1
+          </div>
+          <div class="absolute left-1/4 bottom-10 cycle-box" style="background: #9b59b6;">
+            收藏了 = 忘了
+          </div>
+          <div class="absolute right-1/4 bottom-10 cycle-box" style="background: #f39c12;">
+            收藏夹越积越多
+          </div>
+        </div>
+
+        <div class="mt-16 card inline-block" style="background: #ffeaa7; border-color: #f39c12;">
+          <p class="font-bold text-lg">
+            📂 收藏夹成了"知识墓地"<br>
+            <span class="text-sm font-normal">越积越多，从不看，越看越焦虑</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: The Solution -->
+    <section class="slide is-hidden" id="slide4" data-title="解决方案">
+      <div class="max-w-5xl w-full text-center">
+        <div class="mb-8">
+          <span class="tag" style="background: #ede9fe; color: #7c3aed; font-size: 1rem; padding: 0.5rem 1.5rem;">
+            ✨ 解决方案
+          </span>
+        </div>
+
+        <h1 class="section-title mb-6">
+          bilibili-reader<br>
+          <span class="bg-gradient-to-r from-purple-600 via-blue-600 to-green-500 bg-clip-text text-transparent">
+            让收藏变成知识
+          </span>
+        </h1>
+
+        <p class="section-subtitle max-w-3xl mx-auto">
+          定期从收藏夹中随机选取视频，自动阅读字幕、高赞评论和弹幕，<br>
+          生成结构清晰的 <strong class="highlight">中英双语总结 PDF</strong>
+        </p>
+
+        <div class="grid md:grid-cols-3 gap-6 mt-12">
+          <div class="feature-card">
+            <div class="icon-circle bg-blue-100 mx-auto">🤖</div>
+            <h3 class="font-bold text-lg mb-2">AI 智能分析</h3>
+            <p class="text-gray-600 text-sm">自动识别10种视频体裁</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="icon-circle bg-purple-100 mx-auto">📄</div>
+            <h3 class="font-bold text-lg mb-2">双语 PDF</h3>
+            <p class="text-gray-600 text-sm">中英文对照排版精美</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="icon-circle bg-green-100 mx-auto">🗺️</div>
+            <h3 class="font-bold text-lg mb-2">学习路径</h3>
+            <p class="text-gray-600 text-sm">Topic 图谱智能推荐</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: Genre Routing -->
+    <section class="slide is-hidden" id="slide5" data-title="智能体裁路由">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-12">
+          🎯 智能体裁路由<br>
+          <span class="text-2xl text-gray-500">自动识别视频类型，匹配最佳总结模板</span>
+        </h1>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div class="feature-card text-center" style="border-color: #3498db;">
+            <div class="text-3xl mb-2">💻</div>
+            <h3 class="font-bold">技术教程</h3>
+            <p class="text-xs text-gray-500 mt-1">代码/工具/配置</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #9b59b6;">
+            <div class="text-3xl mb-2">🎓</div>
+            <h3 class="font-bold">学科教育</h3>
+            <p class="text-xs text-gray-500 mt-1">考研/四六级</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #e74c3c;">
+            <div class="text-3xl mb-2">🗣️</div>
+            <h3 class="font-bold">语言学习</h3>
+            <p class="text-xs text-gray-500 mt-1">外语/语法</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #27ae60;">
+            <div class="text-3xl mb-2">🔬</div>
+            <h3 class="font-bold">硬核科普</h3>
+            <p class="text-xs text-gray-500 mt-1">科技/财经</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #f39c12;">
+            <div class="text-3xl mb-2">🧠</div>
+            <h3 class="font-bold">方法论</h3>
+            <p class="text-xs text-gray-500 mt-1">学习/效率</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #1abc9c;">
+            <div class="text-3xl mb-2">💼</div>
+            <h3 class="font-bold">职场技能</h3>
+            <p class="text-xs text-gray-500 mt-1">求职/副业</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #e91e63;">
+            <div class="text-3xl mb-2">🎨</div>
+            <h3 class="font-bold">艺术创造</h3>
+            <p class="text-xs text-gray-500 mt-1">绘画/摄影</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #00bcd4;">
+            <div class="text-3xl mb-2">📖</div>
+            <h3 class="font-bold">书籍拆解</h3>
+            <p class="text-xs text-gray-500 mt-1">速读/拆书</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #ff5722;">
+            <div class="text-3xl mb-2">🛠️</div>
+            <h3 class="font-bold">生活技能</h3>
+            <p class="text-xs text-gray-500 mt-1">维修/烹饪</p>
+          </div>
+
+          <div class="feature-card text-center" style="border-color: #607d8b;">
+            <div class="text-3xl mb-2">📚</div>
+            <h3 class="font-bold">通用知识</h3>
+            <p class="text-xs text-gray-500 mt-1">其他类型</p>
+          </div>
+        </div>
+
+        <div class="mt-8 text-center">
+          <div class="inline-block card" style="background: #f8f9fa;">
+            <p class="text-gray-600">
+              <strong>多分类支持：</strong>视频可同时属于多个体裁，自动合并渲染
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 6: PDF Generation -->
+    <section class="slide is-hidden" id="slide6" data-title="PDF生成">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-12">
+          📄 PDF 生成<br>
+          <span class="text-2xl text-gray-500">双视角结构，深度学习体验</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- My Analysis -->
+          <div class="card" style="border-color: #667eea;">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style="background: #667eea;">我</div>
+              <h3 class="font-bold text-lg">我的解读（认知层）</h3>
+            </div>
+            <ul class="space-y-3 text-gray-600">
+              <li class="flex items-start gap-2">
+                <span class="text-purple-500">✓</span>
+                核心概念的定义与原理
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-purple-500">✓</span>
+                生活类比解释抽象概念
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-purple-500">✓</span>
+                理论阐述 450-550字/概念
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-purple-500">✓</span>
+                深度思考题引导反思
+              </li>
             </ul>
-        </div>
-    </section>
+          </div>
 
-    <!-- ═══════ SLIDE 3: QUESTION ═══════ -->
-    <section class="slide" id="slide-3" data-slide-index="2">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center; text-align:center;">
-            <div class="enter-fade-up">
-                <h2 style="font-size: clamp(1.5rem, 4vw, 3rem);">如果有一个 AI</h2>
-                <h2 style="font-size: clamp(1.5rem, 4vw, 3rem); color: var(--accent);">帮你把每个视频都读一遍</h2>
-                <h2 style="font-size: clamp(1.5rem, 4vw, 3rem);">然后给你一份<span style="color: var(--accent-2);">学习笔记</span>呢？</h2>
+          <!-- Video Transcript -->
+          <div class="card" style="border-color: #3498db;">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style="background: #3498db;">原</div>
+              <h3 class="font-bold text-lg">视频完整陈述（内容层）</h3>
             </div>
+            <ul class="space-y-3 text-gray-600">
+              <li class="flex items-start gap-2">
+                <span class="text-blue-500">✓</span>
+                按时间顺序详细记录
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-blue-500">✓</span>
+                UP主原话引用
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-blue-500">✓</span>
+                保留完整逻辑链条
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-blue-500">✓</span>
+                300-500字/时间段
+              </li>
+            </ul>
+          </div>
         </div>
+
+        <div class="mt-8 text-center">
+          <div class="inline-block card" style="background: #fef3c7; border-color: #f59e0b;">
+            <p class="text-amber-800">
+              📊 <strong>目标字数：</strong>每篇 PDF 约 6000-8000 字
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- ═══════ SLIDE 4: SOLUTION ═══════ -->
-    <section class="slide" id="slide-4" data-slide-index="3">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center; text-align:center;">
-            <div class="enter-fade-up">
-                <p class="label" style="margin-bottom: 1rem;">INTRODUCING</p>
-                <h1 class="neon" style="color: var(--accent);">bilibili-reader</h1>
-                <p class="subtitle" style="margin-top: 1rem;">收藏夹视频智能总结 Skill</p>
-                <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: clamp(0.75rem, 1.3vw, 1rem);">
-                    自动选取 → 读取字幕/评论/弹幕 → 生成中英双语结构化笔记
-                </p>
+    <!-- Slide 7: Learning Path -->
+    <section class="slide is-hidden" id="slide7" data-title="学习路径">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-8">
+          🧠 Topic 知识图谱<br>
+          <span class="text-2xl text-gray-500">基于前置依赖的智能学习路径</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-8 items-center">
+          <!-- Topic Graph Visualization -->
+          <div class="relative">
+            <div class="card p-6" style="background: #f8f9fa;">
+              <div class="flex flex-col items-center gap-4">
+                <!-- Top node -->
+                <div class="px-6 py-3 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold">
+                  Python异步编程
+                </div>
+
+                <!-- Arrow down -->
+                <div class="text-gray-400">↓</div>
+
+                <!-- Middle nodes -->
+                <div class="flex gap-4">
+                  <div class="px-4 py-2 rounded-full bg-blue-400 text-white text-sm font-semibold">
+                    事件循环
+                  </div>
+                  <div class="px-4 py-2 rounded-full bg-green-400 text-white text-sm font-semibold">
+                    协程基础
+                  </div>
+                </div>
+
+                <!-- Arrow down -->
+                <div class="text-gray-400">↓</div>
+
+                <!-- Bottom node -->
+                <div class="px-6 py-3 rounded-full bg-gray-400 text-white font-semibold">
+                  Python基础
+                </div>
+
+                <!-- Legend -->
+                <div class="flex gap-4 mt-4 text-xs text-gray-500">
+                  <span class="flex items-center gap-1">
+                    <span class="w-3 h-3 rounded-full bg-green-400"></span> 已解锁
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <span class="w-3 h-3 rounded-full bg-purple-500"></span> 推荐学习
+                  </span>
+                </div>
+              </div>
             </div>
-        </div>
-    </section>
+          </div>
 
-    <!-- ═══════ SLIDE 5: DEMO ═══════ -->
-    <section class="slide" id="slide-5" data-slide-index="4">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center;">
-            <h2 class="enter-fade-up" style="text-align:center; margin-bottom: 1.5rem;">看它怎么工作</h2>
-            <div class="terminal enter-scale-in" style="--delay:0.2s">
-                <div class="terminal-bar">
-                    <span class="terminal-dot r"></span>
-                    <span class="terminal-dot y"></span>
-                    <span class="terminal-dot g"></span>
-                </div>
-                <div class="terminal-body">
-                    <div><span class="prompt">$ </span>python -m src</div>
-                    <div class="output">正在获取收藏夹列表...</div>
-                    <div class="output">已选择: <span style="color:var(--text)">代码</span> (30个视频)</div>
-                    <div class="output">随机选中: <span class="highlight">Python装饰器完全指南</span></div>
-                    <div class="output">正在下载字幕... 获取到 342 条字幕</div>
-                    <div class="output">正在获取高赞评论... 获取到 10 条评论</div>
-                    <div class="output">正在获取弹幕... 获取到 50 条弹幕</div>
-                    <div class="output">体裁: <span style="color:var(--accent)">💻 技术教程与实操</span></div>
-                    <div class="output">正在生成总结...</div>
-                    <div class="success">PDF已生成: output/20260506_Python装饰器完全指南.pdf</div>
-                    <div class="success">已记录为已处理视频</div>
-                    <div style="margin-top:8px; color: var(--accent);">
-                        ████████████░░░░░░░░ 40% · 已消化 12/30 个视频
-                    </div>
-                </div>
+          <!-- Features -->
+          <div class="space-y-4">
+            <div class="feature-card flex items-center gap-4">
+              <div class="text-3xl">📊</div>
+              <div>
+                <h3 class="font-bold">Topic 依赖图</h3>
+                <p class="text-gray-600 text-sm">自动建立前置知识关系</p>
+              </div>
             </div>
-        </div>
-    </section>
 
-    <!-- ═══════ SLIDE 6: GENRE ═══════ -->
-    <section class="slide" id="slide-6" data-slide-index="5">
-        <div class="slide-bg"></div>
-        <div class="slide-content">
-            <h2 class="enter-fade-up" style="text-align:center;">10 种体裁，10 套提示词</h2>
-            <p style="text-align:center; color: var(--text-muted); margin-bottom: 1rem;">AI 自动判断视频类型，用最合适的模板生成总结</p>
-            <div class="grid">
-                <div class="card enter-scale-in" style="--delay:0.1s"><span class="card-icon">💻</span><div class="card-title">技术教程</div><div class="card-body">工具清单 · 代码片段 · 避坑指南</div></div>
-                <div class="card enter-scale-in" style="--delay:0.15s"><span class="card-icon">🎓</span><div class="card-title">学科教育</div><div class="card-body">考点 · 公式 · 应试技巧</div></div>
-                <div class="card enter-scale-in" style="--delay:0.2s"><span class="card-icon">🗣️</span><div class="card-title">语言学习</div><div class="card-body">词汇表 · 语法点 · 发音</div></div>
-                <div class="card enter-scale-in" style="--delay:0.25s"><span class="card-icon">🔬</span><div class="card-title">深度解析</div><div class="card-body">论点-论据 · 数据来源</div></div>
-                <div class="card enter-scale-in" style="--delay:0.3s"><span class="card-icon">🧠</span><div class="card-title">方法论</div><div class="card-body">可执行框架 · 练习模板</div></div>
-                <div class="card enter-scale-in" style="--delay:0.35s"><span class="card-icon">💼</span><div class="card-title">职场技能</div><div class="card-body">话术模板 · 场景SOP</div></div>
+            <div class="feature-card flex items-center gap-4">
+              <div class="text-3xl">🎯</div>
+              <div>
+                <h3 class="font-bold">智能推荐</h3>
+                <p class="text-gray-600 text-sm">满足前置条件才推荐学习</p>
+              </div>
             </div>
-        </div>
-    </section>
 
-    <!-- ═══════ SLIDE 7: PDF SHOWCASE ═══════ -->
-    <section class="slide" id="slide-7" data-slide-index="6">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center;">
-            <h2 class="enter-fade-up" style="text-align:center; margin-bottom: 1rem;">生成的笔记长什么样</h2>
-            <div class="enter-scale-in" style="--delay:0.15s; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 800px;">
-                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-                    <p style="color: var(--accent); font-weight: 700; margin-bottom: 0.8rem;">📋 中文部分</p>
-                    <p style="font-size: var(--small-size); color: var(--text-muted); line-height: 1.8;">
-                        ⚡ TLDR: 装饰器本质是高阶函数的语法糖<br>
-                        🎯 核心要点 × 5<br>
-                        📋 前置知识 · 📊 难度评级<br>
-                        🧠 洞察与启发<br>
-                        💬 精选评论<br>
-                        🚀 后续行动
-                    </p>
-                </div>
-                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-                    <p style="color: var(--accent-2); font-weight: 700; margin-bottom: 0.8rem;">📋 English Section</p>
-                    <p style="font-size: var(--small-size); color: var(--text-muted); line-height: 1.8;">
-                        ⚡ TL;DR: Decorators are syntactic sugar for HOFs<br>
-                        🎯 Key Points × 5<br>
-                        📋 Prerequisites · 📊 Difficulty<br>
-                        🧠 Insights<br>
-                        💬 Top Comments<br>
-                        🚀 Next Steps
-                    </p>
-                </div>
+            <div class="feature-card flex items-center gap-4">
+              <div class="text-3xl">🔄</div>
+              <div>
+                <h3 class="font-bold">冷启动保护</h3>
+                <p class="text-gray-600 text-sm">数据不足时自动降级为随机</p>
+              </div>
             </div>
-        </div>
-    </section>
 
-    <!-- ═══════ SLIDE 8: ACHIEVEMENTS ═══════ -->
-    <section class="slide" id="slide-8" data-slide-index="7">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center; text-align:center;">
-            <h2 class="enter-fade-up">收藏夹考古系统</h2>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">每消化一个视频就"点亮"一块，看你的知识版图怎么扩张</p>
-            <div class="enter-scale-in" style="--delay:0.2s; display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center;">
-                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
-                    <span style="font-size: 2rem;">🌱</span>
-                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">初次发掘</p>
-                </div>
-                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
-                    <span style="font-size: 2rem;">🔍</span>
-                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">考古新手</p>
-                </div>
-                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--accent); box-shadow: var(--glow);">
-                    <span style="font-size: 2rem;">⛏️</span>
-                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">考古学徒</p>
-                </div>
-                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
-                    <span style="font-size: 2rem;">🏛️</span>
-                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">知识守护者</p>
-                </div>
-                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
-                    <span style="font-size: 2rem;">👑</span>
-                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">收藏夹征服者</p>
-                </div>
+            <div class="feature-card flex items-center gap-4">
+              <div class="text-3xl">🔍</div>
+              <div>
+                <h3 class="font-bold">语义搜索</h3>
+                <p class="text-gray-600 text-sm">ChromaDB 向量数据库</p>
+              </div>
             </div>
+          </div>
         </div>
+      </div>
     </section>
 
-    <!-- ═══════ SLIDE 9: INSTALL ═══════ -->
-    <section class="slide" id="slide-9" data-slide-index="8">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center; text-align:center;">
-            <div class="enter-fade-up">
-                <h2 style="margin-bottom: 1.5rem;">30 秒开始使用</h2>
-                <div class="terminal" style="text-align:left; margin: 0 auto;">
-                    <div class="terminal-bar">
-                        <span class="terminal-dot r"></span>
-                        <span class="terminal-dot y"></span>
-                        <span class="terminal-dot g"></span>
-                    </div>
-                    <div class="terminal-body">
-                        <div><span class="prompt"># Hermes Agent 用户 — 直接对 Agent 说：</span></div>
-                        <div style="color: var(--text);">帮我去 github.com/mistake-12/bilibili-reader-skill<br>安装这个 bilibili-reader skill</div>
-                        <div style="margin-top: 12px;"><span class="prompt"># OpenClaw 用户：</span></div>
-                        <div style="color: var(--text);">openclaw skills install mistake-12/bilibili-reader-skill</div>
-                        <div style="margin-top: 12px;"><span class="prompt"># 然后直接说：</span></div>
-                        <div class="highlight">帮我从收藏夹随机总结一个视频</div>
-                    </div>
+    <!-- Slide 8: Quiz Feature -->
+    <section class="slide is-hidden" id="slide8" data-title="理解度测验">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-8">
+          🎯 理解度测验<br>
+          <span class="text-2xl text-gray-500">看完视频后自动生成测验题</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- Quiz Example -->
+          <div class="card">
+            <h3 class="font-bold text-lg mb-4">📝 选择题示例</h3>
+            <div class="space-y-3">
+              <p class="font-medium">1. 事件循环的核心机制是什么？</p>
+              <div class="space-y-2 text-sm">
+                <label class="flex items-center gap-2 p-2 rounded bg-gray-50">
+                  <input type="radio" name="q1"> A. 多线程并行执行
+                </label>
+                <label class="flex items-center gap-2 p-2 rounded bg-green-100 border-2 border-green-500">
+                  <input type="radio" name="q1" checked> B. 单线程 + 事件队列 + 非阻塞IO
+                </label>
+                <label class="flex items-center gap-2 p-2 rounded bg-gray-50">
+                  <input type="radio" name="q1"> C. 递归函数调用
+                </label>
+                <label class="flex items-center gap-2 p-2 rounded bg-gray-50">
+                  <input type="radio" name="q1"> D. 定时器轮询
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Features -->
+          <div class="space-y-4">
+            <div class="feature-card">
+              <div class="flex items-center gap-4">
+                <div class="text-3xl">📖</div>
+                <div>
+                  <h3 class="font-bold">选择题 + 简答题</h3>
+                  <p class="text-gray-600 text-sm">验证对核心概念的理解</p>
                 </div>
+              </div>
             </div>
+
+            <div class="feature-card">
+              <div class="flex items-center gap-4">
+                <div class="text-3xl">📊</div>
+                <div>
+                  <h3 class="font-bold">难度分级</h3>
+                  <p class="text-gray-600 text-sm">easy / medium / hard 三档</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <div class="flex items-center gap-4">
+                <div class="text-3xl">🔗</div>
+                <div>
+                  <h3 class="font-bold">答案溯源</h3>
+                  <p class="text-gray-600 text-sm">每题标注来源字段</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <div class="flex items-center gap-4">
+                <div class="text-3xl">🤖</div>
+                <div>
+                  <h3 class="font-bold">AI 自动生成</h3>
+                  <p class="text-gray-600 text-sm">基于总结内容智能出题</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </section>
 
-    <!-- ═══════ SLIDE 10: CTA ═══════ -->
-    <section class="slide" id="slide-10" data-slide-index="9">
-        <div class="slide-bg"></div>
-        <div class="slide-content" style="align-items:center; text-align:center;">
-            <div class="enter-fade-up">
-                <h1 style="font-size: clamp(1.5rem, 4.5vw, 3.5rem); margin-bottom: 1.5rem;">
-                    收藏了不看？<br><span style="color: var(--accent);">让它变成知识。</span>
-                </h1>
-                <a href="https://github.com/mistake-12/bilibili-reader-skill" class="cta">
-                    GitHub → mistake-12/bilibili-reader-skill
-                </a>
-                <p style="margin-top: 2rem; color: var(--text-muted); font-size: var(--small-size);">
-                    兼容 Hermes Agent · OpenClaw · Claude Code · Gemini CLI
-                </p>
+    <!-- Slide 9: Progress -->
+    <section class="slide is-hidden" id="slide9" data-title="考古进度">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-8">
+          📊 考古进度可视化<br>
+          <span class="text-2xl text-gray-500">把"消化收藏"变成游戏</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-8 items-center">
+          <!-- Progress Ring -->
+          <div class="flex justify-center">
+            <div class="progress-ring">
+              <svg width="200" height="200">
+                <defs>
+                  <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#667eea"/>
+                    <stop offset="100%" style="stop-color:#764ba2"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="100" cy="100" r="85" fill="none" stroke="#e0e0e0" stroke-width="14"/>
+                <circle cx="100" cy="100" r="85" fill="none" stroke="url(#progressGrad)" stroke-width="14"
+                  stroke-dasharray="534" stroke-dashoffset="320" stroke-linecap="round"
+                  transform="rotate(-90 100 100)"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="text-4xl font-black">40%</span>
+                <span class="text-sm text-gray-500">考古进度</span>
+              </div>
             </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="space-y-4">
+            <div class="feature-card flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-2xl">📚</div>
+              <div>
+                <p class="text-2xl font-bold">12 / 30</p>
+                <p class="text-gray-500 text-sm">已消化视频</p>
+              </div>
+            </div>
+
+            <div class="feature-card flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-2xl">🧠</div>
+              <div>
+                <p class="text-2xl font-bold">8 个</p>
+                <p class="text-gray-500 text-sm">Topic 图谱</p>
+              </div>
+            </div>
+
+            <div class="feature-card flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-2xl">🏆</div>
+              <div>
+                <p class="text-2xl font-bold">3 个</p>
+                <p class="text-gray-500 text-sm">已解锁成就</p>
+              </div>
+            </div>
+
+            <div class="feature-card flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-2xl">💻</div>
+              <div>
+                <p class="text-2xl font-bold">5 个</p>
+                <p class="text-gray-500 text-sm">技术教程</p>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Achievements -->
+        <div class="mt-8 text-center">
+          <div class="inline-block card" style="background: #fef3c7;">
+            <p class="text-sm">
+              <strong>🏆 成就：</strong>
+              🌱 初次发掘 · 🔍 考古新手 · ⛏️ 考古学徒
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- ═══════ JS ═══════ -->
-    <script>
-    class SlidePresentation {
-        constructor() {
-            this.slides = Array.from(document.querySelectorAll('.slide'));
-            this.current = 0; this.isAnimating = false;
-            this.touchStartY = 0; this.touchStartX = 0;
-            this.init();
-        }
-        init() {
-            if (!this.slides.length) return;
-            this.buildNavDots(); this.buildProgressBar();
-            this.bindKeyboard(); this.bindTouch(); this.bindWheel(); this.bindHash();
-            this.observeSlides(); this.goTo(this.getInitialSlide(), false);
-        }
-        buildNavDots() {
-            const nav = document.getElementById('navDots');
-            this.slides.forEach((_, i) => {
-                const btn = document.createElement('button');
-                btn.className = 'nav-dot'; btn.dataset.index = i;
-                btn.addEventListener('click', () => this.goTo(i));
-                nav.appendChild(btn);
-            });
-            this.dots = Array.from(nav.querySelectorAll('.nav-dot'));
-        }
-        buildProgressBar() { this.progressBar = document.getElementById('progressBar'); }
-        updateProgress() {
-            if (!this.progressBar) return;
-            const pct = this.slides.length > 1 ? (this.current / (this.slides.length - 1)) * 100 : 100;
-            this.progressBar.style.width = `${pct}%`;
-            if (this.dots) this.dots.forEach((d, i) => d.classList.toggle('active', i === this.current));
-        }
-        goTo(index, animate = true) {
-            const target = Math.max(0, Math.min(index, this.slides.length - 1));
-            if (target === this.current && animate) return;
-            this.current = target;
-            this.slides[target].scrollIntoView({ behavior: animate ? 'smooth' : 'instant' });
-            this.updateProgress(); this.triggerEntrance(this.slides[target]);
-            history.replaceState(null, '', `#slide-${target + 1}`);
-        }
-        next() { this.goTo(this.current + 1); }
-        prev() { this.goTo(this.current - 1); }
-        getInitialSlide() {
-            const m = window.location.hash.match(/#slide-(\d+)/);
-            return m ? parseInt(m[1], 10) - 1 : 0;
-        }
-        bindKeyboard() {
-            document.addEventListener('keydown', (e) => {
-                if (e.target.matches('[contenteditable], input, textarea')) return;
-                switch (e.key) {
-                    case 'ArrowDown': case 'ArrowRight': case ' ': case 'PageDown': e.preventDefault(); this.next(); break;
-                    case 'ArrowUp': case 'ArrowLeft': case 'PageUp': e.preventDefault(); this.prev(); break;
-                    case 'Home': e.preventDefault(); this.goTo(0); break;
-                    case 'End': e.preventDefault(); this.goTo(this.slides.length - 1); break;
-                    case 'f': case 'F': if (!e.ctrlKey && !e.metaKey) { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); } break;
-                }
-            });
-        }
-        bindTouch() {
-            document.addEventListener('touchstart', (e) => { this.touchStartY = e.touches[0].clientY; this.touchStartX = e.touches[0].clientX; }, { passive: true });
-            document.addEventListener('touchend', (e) => {
-                const dy = this.touchStartY - e.changedTouches[0].clientY, dx = this.touchStartX - e.changedTouches[0].clientX;
-                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 40) dy > 0 ? this.next() : this.prev();
-            }, { passive: true });
-        }
-        bindWheel() {
-            let t; document.addEventListener('wheel', (e) => { e.preventDefault(); clearTimeout(t); t = setTimeout(() => e.deltaY > 0 ? this.next() : this.prev(), 50); }, { passive: false });
-        }
-        observeSlides() {
-            const obs = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const idx = this.slides.indexOf(entry.target);
-                        if (idx !== -1 && idx !== this.current) { this.current = idx; this.updateProgress(); this.triggerEntrance(entry.target); }
-                    }
-                });
-            }, { threshold: 0.6 });
-            this.slides.forEach(s => obs.observe(s));
-        }
-        triggerEntrance(slide) {
-            slide.querySelectorAll('[class*="enter-"]').forEach(el => { el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; });
-        }
-        bindHash() { window.addEventListener('hashchange', () => this.goTo(this.getInitialSlide())); }
+    <!-- Slide 10: Workflow -->
+    <section class="slide is-hidden" id="slide10" data-title="工作流程">
+      <div class="max-w-4xl w-full">
+        <h1 class="section-title text-center mb-12">
+          ⚙️ 工作流程<br>
+          <span class="text-2xl text-gray-500">四步完成视频总结</span>
+        </h1>
+
+        <div class="space-y-8">
+          <div class="timeline-item">
+            <div class="step-number flex-shrink-0" style="background: linear-gradient(135deg, #667eea, #764ba2);">1</div>
+            <div class="feature-card flex-grow">
+              <h3 class="font-bold text-lg mb-2">📦 随机选取视频</h3>
+              <p class="text-gray-600">从收藏夹中智能选择未处理的视频，支持按最新/随机/指定BV号</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <div class="step-number flex-shrink-0" style="background: linear-gradient(135deg, #3498db, #2980b9);">2</div>
+            <div class="feature-card flex-grow">
+              <h3 class="font-bold text-lg mb-2">📥 提取内容</h3>
+              <p class="text-gray-600">自动获取视频字幕、高赞评论和弹幕数据</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <div class="step-number flex-shrink-0" style="background: linear-gradient(135deg, #f1c40f, #d4ac0d); color: #333;">3</div>
+            <div class="feature-card flex-grow">
+              <h3 class="font-bold text-lg mb-2">🤖 AI 生成总结</h3>
+              <p class="text-gray-600">调用 LLM 生成结构化的中英双语总结，包含核心概念、要点洞察</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <div class="step-number flex-shrink-0" style="background: linear-gradient(135deg, #27ae60, #1e8449);">4</div>
+            <div class="feature-card flex-grow">
+              <h3 class="font-bold text-lg mb-2">📄 输出 PDF</h3>
+              <p class="text-gray-600">生成精美排版的 PDF 文件，可本地查看或推送到聊天平台</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 11: Deployment -->
+    <section class="slide is-hidden" id="slide11" data-title="快速部署">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-8">
+          🚀 快速部署<br>
+          <span class="text-2xl text-gray-500">让 AI Agent 一键安装使用</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- OpenClaw -->
+          <div class="deploy-card">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center text-white text-xl font-bold">O</div>
+              <div>
+                <h3 class="font-bold text-lg">OpenClaw</h3>
+                <p class="text-gray-500 text-sm">开源 Agent 平台</p>
+              </div>
+            </div>
+
+            <div class="code-block mb-4">
+              <code class="text-green-400 text-sm">
+                openclaw skills install<br>
+                mistake-12/bilibili-reader-skill
+              </code>
+            </div>
+
+            <button class="btn btn-primary w-full" onclick="copyText('openclaw skills install mistake-12/bilibili-reader-skill')">
+              📋 复制命令
+            </button>
+          </div>
+
+          <!-- Hermes Agent -->
+          <div class="deploy-card">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold">H</div>
+              <div>
+                <h3 class="font-bold text-lg">Hermes Agent</h3>
+                <p class="text-gray-500 text-sm">智能助手框架</p>
+              </div>
+            </div>
+
+            <div class="code-block mb-4">
+              <code class="text-green-400 text-sm">
+                帮我去 github.com/mistake-12/<br>
+                bilibili-reader-skill 安装
+              </code>
+            </div>
+
+            <button class="btn btn-primary w-full" style="background: linear-gradient(135deg, #9b59b6, #3498db);" onclick="copyText('https://github.com/mistake-12/bilibili-reader-skill')">
+              📋 复制链接
+            </button>
+          </div>
+        </div>
+
+        <!-- Manual Install -->
+        <div class="mt-6 deploy-card" style="background: #f8f9fa;">
+          <h3 class="font-bold mb-3">🛠️ 手动安装</h3>
+          <div class="code-block">
+            <code class="text-green-400 text-sm block mb-1">git clone https://github.com/mistake-12/bilibili-reader-skill.git</code>
+            <code class="text-green-400 text-sm block"># 放入 Agent 的 skills 目录即可</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 12: Tool's Value Summary -->
+    <section class="slide is-hidden" id="slide12" data-title="工具价值">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-8">
+          💡 bilibili-reader<br>
+          <span class="text-2xl text-gray-500">如何帮你消化收藏夹？</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+          <!-- Benefit cards -->
+          <div class="feature-card flex items-start gap-4">
+            <div class="text-4xl">⚡</div>
+            <div>
+              <h3 class="font-bold text-lg mb-1">快速判断视频价值</h3>
+              <p class="text-gray-600 text-sm">快速知道视频的核心价值，判断是否有回顾的价值</p>
+            </div>
+          </div>
+
+          <div class="feature-card flex items-start gap-4">
+            <div class="text-4xl">📖</div>
+            <div>
+              <h3 class="font-bold text-lg mb-1">闲时阅读</h3>
+              <p class="text-gray-600 text-sm">通勤、午休、睡前，碎片时间高效学习</p>
+            </div>
+          </div>
+
+          <div class="feature-card flex items-start gap-4">
+            <div class="text-4xl">🧠</div>
+            <div>
+              <h3 class="font-bold text-lg mb-1">知识结构化</h3>
+              <p class="text-gray-600 text-sm">知识保存在本地向量库，随时检索</p>
+            </div>
+          </div>
+
+          <div class="feature-card flex items-start gap-4">
+            <div class="text-4xl">🔄</div>
+            <div>
+              <h3 class="font-bold text-lg mb-1">智能去重</h3>
+              <p class="text-gray-600 text-sm">阅读完的视频会保存UID，不会重复生成</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reading modes -->
+        <div class="card" style="background: #f0f9ff; border-color: #0ea5e9;">
+          <h3 class="font-bold text-lg mb-4 text-center">📚 目前内置三种阅读模式</h3>
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="text-center p-4 bg-white rounded-xl">
+              <div class="text-3xl mb-2">🎲</div>
+              <h4 class="font-bold">随机阅读</h4>
+              <p class="text-xs text-gray-500 mt-1">发现意外惊喜</p>
+            </div>
+            <div class="text-center p-4 bg-white rounded-xl">
+              <div class="text-3xl mb-2">📅</div>
+              <h4 class="font-bold">从近到远</h4>
+              <p class="text-xs text-gray-500 mt-1">按收藏时间顺序</p>
+            </div>
+            <div class="text-center p-4 bg-white rounded-xl">
+              <div class="text-3xl mb-2">🗂️</div>
+              <h4 class="font-bold">指定BV号</h4>
+              <p class="text-xs text-gray-500 mt-1">精准学习目标</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 13: Future Plans -->
+    <section class="slide is-hidden" id="slide13" data-title="未来计划">
+      <div class="max-w-5xl w-full">
+        <h1 class="section-title text-center mb-8">
+          🚀 未来迭代计划<br>
+          <span class="text-2xl text-gray-500">持续优化，让学习更轻松</span>
+        </h1>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- Current limitation -->
+          <div class="card" style="background: #fef3c7; border-color: #f59e0b;">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="text-3xl">📄</div>
+              <h3 class="font-bold text-lg">当前局限：PDF 阅读门槛高</h3>
+            </div>
+            <p class="text-gray-700">
+              PDF 虽然便于分享，但阅读体验相对静态，<br>
+              需要专门的时间坐下来阅读
+            </p>
+          </div>
+
+          <!-- Future vision -->
+          <div class="card" style="background: #d1fae5; border-color: #10b981;">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="text-3xl">🎯</div>
+              <h3 class="font-bold text-lg">未来方向：HTML 可交互学习</h3>
+            </div>
+            <p class="text-gray-700">
+              引入 HTML5 交互式学习模式，<br>
+              让视频知识变得可点击、可探索、可测验
+            </p>
+          </div>
+        </div>
+
+        <!-- Roadmap -->
+        <div class="mt-8">
+          <h3 class="font-bold text-xl text-center mb-6">🗺️ 迭代路线图</h3>
+          <div class="grid md:grid-cols-4 gap-4">
+            <div class="feature-card text-center" style="border-color: #10b981;">
+              <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-2xl mx-auto mb-3">1</div>
+              <h4 class="font-bold">PDF 优化</h4>
+              <p class="text-xs text-gray-500 mt-1">精美排版 + 导航</p>
+              <span class="tag bg-green-100 text-green-700 mt-2">已完成</span>
+            </div>
+
+            <div class="feature-card text-center" style="border-color: #3b82f6;">
+              <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-2xl mx-auto mb-3">2</div>
+              <h4 class="font-bold">Quiz 测验</h4>
+              <p class="text-xs text-gray-500 mt-1">理解度验证</p>
+              <span class="tag bg-blue-100 text-blue-700 mt-2">开发中</span>
+            </div>
+
+            <div class="feature-card text-center" style="border-color: #8b5cf6;">
+              <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-2xl mx-auto mb-3">3</div>
+              <h4 class="font-bold">Topic 图谱</h4>
+              <p class="text-xs text-gray-500 mt-1">知识关系可视化</p>
+              <span class="tag bg-purple-100 text-purple-700 mt-2">规划中</span>
+            </div>
+
+            <div class="feature-card text-center" style="border-color: #f59e0b;">
+              <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-2xl mx-auto mb-3">4</div>
+              <h4 class="font-bold">HTML 学习</h4>
+              <p class="text-xs text-gray-500 mt-1">可交互式体验</p>
+              <span class="tag bg-yellow-100 text-yellow-700 mt-2">规划中</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 14: CTA -->
+    <section class="slide is-hidden" id="slide14" data-title="开始使用">
+      <div class="text-center max-w-3xl">
+        <h1 class="section-title mb-6">
+          <span class="bg-gradient-to-r from-purple-600 via-blue-600 to-green-500 bg-clip-text text-transparent">
+            开始你的<br>收藏考古之旅
+          </span>
+        </h1>
+
+        <p class="text-xl text-gray-600 mb-12">
+          让 bilibili-reader 成为你的专属学习伴侣<br>
+          把"收藏了不看"变成"收藏了全懂"
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-4 mb-12">
+          <a href="https://github.com/mistake-12/bilibili-reader-skill" target="_blank" class="btn btn-primary text-lg">
+            🚀 GitHub 仓库
+          </a>
+          <button onclick="goToSlide(1)" class="btn btn-green text-lg">
+            🔄 重新播放
+          </button>
+        </div>
+
+        <div class="mt-16 text-gray-400">
+          <p class="text-lg">Made with ❤️ for B站重度用户</p>
+          <p class="mt-2">bilibili-reader v2.0</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    /* ========================================
+       SLIDE SYSTEM - Robust State Machine
+       Explicit visibility control via JS
+       ======================================== */
+
+    let currentSlide = 1;
+    const totalSlides = 14;
+    let isAnimating = false;
+
+    // Initialize first slide
+    document.addEventListener('DOMContentLoaded', () => {
+      const firstSlide = document.getElementById('slide1');
+      firstSlide.classList.add('is-active');
+
+      // Trigger content animations after a brief delay
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          triggerContentAnimations(firstSlide);
+          animateCounter();
+        }, 100);
+      });
+    });
+
+    /* ---- CORE: Slide Transition ----
+       State machine with explicit visibility control
+    */
+    function goToSlide(num) {
+      if (num === currentSlide || isAnimating || num < 1 || num > totalSlides) return;
+
+      isAnimating = true;
+
+      const prevSlide = document.getElementById(`slide${currentSlide}`);
+      const nextSlide = document.getElementById(`slide${num}`);
+
+      // ===== PHASE 1: START LEAVING ANIMATION =====
+      // Set initial leaving state (no transition yet)
+      prevSlide.style.transition = 'none';
+      prevSlide.style.opacity = '1';
+      prevSlide.style.transform = 'translateY(0)';
+
+      // Force browser to paint this state
+      void prevSlide.offsetWidth;
+
+      // Now trigger the leaving transition
+      prevSlide.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      prevSlide.style.opacity = '0';
+      prevSlide.style.transform = 'translateY(-60px)';
+
+      // ===== PHASE 2: PREPARE NEXT SLIDE (invisible but DOM exists) =====
+      nextSlide.style.transition = 'none';
+      nextSlide.style.opacity = '0';
+      nextSlide.style.transform = 'translateY(60px)';
+      nextSlide.style.visibility = 'visible';
+      nextSlide.classList.remove('is-hidden');
+      nextSlide.classList.add('is-entering');
+
+      // ===== PHASE 3: ACTIVATE NEXT SLIDE (after leaving animation ends) =====
+      setTimeout(() => {
+        // Hide previous slide completely
+        prevSlide.style.visibility = 'hidden';
+        prevSlide.classList.remove('is-leaving');
+        prevSlide.classList.add('is-hidden');
+
+        // Force browser to measure next slide's current state
+        void nextSlide.offsetWidth;
+
+        // Trigger entering transition (0 -> 1 opacity, 60px -> 0 translateY)
+        nextSlide.style.transition = 'opacity 0.45s ease, transform 0.45s ease';
+        nextSlide.style.opacity = '1';
+        nextSlide.style.transform = 'translateY(0)';
+
+        // When entering animation finishes, clean up inline styles
+        setTimeout(() => {
+          nextSlide.classList.remove('is-entering');
+          nextSlide.classList.add('is-active');
+
+          // Remove inline styles so CSS class takes full control
+          nextSlide.style.transition = '';
+          nextSlide.style.opacity = '';
+          nextSlide.style.transform = '';
+
+          // Also reset prev slide inline styles for next time
+          prevSlide.style.transition = '';
+          prevSlide.style.opacity = '';
+          prevSlide.style.transform = '';
+
+          // Trigger content animations
+          triggerContentAnimations(nextSlide);
+
+          // Special: counter animation on slide 1
+          if (num === 1) {
+            animateCounter();
+          }
+
+          currentSlide = num;
+          isAnimating = false;
+
+        }, 460); // 460ms > entering animation 450ms
+
+      }, 420); // 420ms > leaving animation 400ms
     }
-    document.addEventListener('DOMContentLoaded', () => new SlidePresentation());
-    </script>
+
+    /* ---- Content Stagger Animations ---- */
+    function triggerContentAnimations(slide) {
+      // Get all animatable elements
+      const elements = slide.querySelectorAll('h1, h2, h3, p, .card, .feature-card, .deploy-card, .tag, .btn, .timeline-item, .icon-circle, .step-number');
+
+      // Set initial hidden state
+      elements.forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+      });
+
+      // Force reflow
+      void slide.offsetWidth;
+
+      // Animate in with stagger
+      elements.forEach((el, index) => {
+        const delay = index * 0.08;
+        setTimeout(() => {
+          el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0)';
+        }, delay);
+      });
+    }
+
+    /* ---- Counter Animation with Flying Files ---- */
+    function animateCounter() {
+      const badge = document.getElementById('favBadge');
+      const folder = document.getElementById('favFolder');
+      const flyingContainer = document.getElementById('flyingFiles');
+      if (!badge || !folder) return;
+
+      const end = 999;
+      const duration = 2500;
+      const startTime = performance.now();
+
+      // File icons for flying animation
+      const fileIcons = ['📹', '📺', '🎬', '📚', '💡', '🎓', '📝', '🎥', '🎞️', '📋'];
+
+      // Launch flying files periodically
+      let fileCount = 0;
+      const fileInterval = setInterval(() => {
+        if (fileCount >= 25) {
+          clearInterval(fileInterval);
+          return;
+        }
+
+        launchFlyingFile(flyingContainer, folder, fileIcons[fileCount % fileIcons.length]);
+        fileCount++;
+      }, 100); // Launch a file every 100ms
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease out cubic
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(easeProgress * end);
+
+        badge.textContent = current;
+
+        // Trigger swell effect when receiving files
+        if (progress < 0.8) {
+          folder.classList.add('swelling');
+          setTimeout(() => folder.classList.remove('swelling'), 300);
+        }
+
+        // Mark as full/overflowing when approaching max
+        if (current >= 900) {
+          folder.classList.add('full');
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        } else {
+          // Animation complete - add overflow particles
+          createOverflowEffect(folder);
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    /* ---- Launch a flying file into the folder ---- */
+    function launchFlyingFile(container, folder, icon) {
+      const file = document.createElement('div');
+      file.className = 'flying-file';
+      file.textContent = icon;
+
+      // Random starting position around the folder
+      const startX = Math.random() * 300 - 150; // -150 to 150
+      const startY = Math.random() * 200 + 100; // Below folder
+
+      // Target: center of folder
+      const targetX = 100; // Center of 200px folder
+      const targetY = 90;  // Middle of 180px folder
+
+      file.style.left = `${startX}px`;
+      file.style.top = `${startY}px`;
+      file.style.setProperty('--target-x', `${targetX - startX}px`);
+      file.style.setProperty('--target-y', `${targetY - startY}px`);
+
+      container.appendChild(file);
+
+      // Remove after animation
+      setTimeout(() => file.remove(), 1200);
+    }
+
+    /* ---- Create overflow particle effect ---- */
+    function createOverflowEffect(folder) {
+      const container = document.createElement('div');
+      container.className = 'flying-files';
+      container.style.position = 'absolute';
+      container.style.top = '0';
+      container.style.left = '0';
+      container.style.width = '200px';
+      container.style.height = '180px';
+
+      folder.appendChild(container);
+
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          const particle = document.createElement('div');
+          particle.className = 'overflow-particle';
+
+          const angle = (i / 8) * Math.PI * 2;
+          const distance = 80 + Math.random() * 40;
+          const burstX = Math.cos(angle) * distance;
+          const burstY = Math.sin(angle) * distance;
+
+          particle.style.left = '50%';
+          particle.style.top = '50%';
+          particle.style.setProperty('--burst-x', `${burstX}px`);
+          particle.style.setProperty('--burst-y', `${burstY}px`);
+
+          container.appendChild(particle);
+
+          setTimeout(() => particle.remove(), 1000);
+        }, i * 50);
+      }
+
+      setTimeout(() => container.remove(), 2000);
+    }
+
+    /* ---- Navigation Functions ---- */
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        goToSlide(currentSlide + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        goToSlide(currentSlide - 1);
+      }
+    }
+
+    /* ---- Keyboard Navigation ---- */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevSlide();
+      }
+    });
+
+    /* ---- Mouse Wheel Navigation ---- */
+    let lastWheelTime = 0;
+    const wheelCooldown = 1000;
+
+    document.addEventListener('wheel', (e) => {
+      const now = Date.now();
+      if (now - lastWheelTime < wheelCooldown) return;
+      lastWheelTime = now;
+
+      if (e.deltaY > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }, { passive: true });
+
+    /* ---- Touch Navigation ---- */
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      const touchEndY = e.changedTouches[0].clientY;
+      const diff = touchStartY - touchEndY;
+
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+          nextSlide();
+        } else {
+          prevSlide();
+        }
+      }
+    }, { passive: true });
+
+    /* ---- Copy to Clipboard ---- */
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const original = btn.innerHTML;
+        btn.innerHTML = '✅ 已复制';
+        setTimeout(() => {
+          btn.innerHTML = original;
+        }, 1500);
+      });
+    }
+  </script>
 </body>
 </html>

@@ -17,13 +17,12 @@
   .venv/bin/python scripts/run_noninteractive.py 代码 BV1ZPttzhEDV
 """
 
-import sys, json, random
+import sys
+import json
+import random
 from pathlib import Path
-from datetime import datetime
 
-# 确保能导入 skill 模块
-skill_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(skill_dir))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import Config
 from src.bilibili_api import BilibiliAPI
@@ -31,6 +30,16 @@ from src.summarizer import generate_summary
 from src.pdf_generator import generate_pdf
 from src.memory import Memory
 from src.progress import print_progress, calculate_progress, render_mini_progress
+from src.topic_graph import load_or_build_graph
+
+
+def _get_vector_store():
+    """懒加载 VectorStore"""
+    try:
+        from src.vector_store import get_vector_store
+        return get_vector_store(Config.DATA_DIR)
+    except ImportError:
+        return None
 
 
 def main():
@@ -48,7 +57,11 @@ def main():
         sys.exit(1)
 
     Config.ensure_dirs()
-    api = BilibiliAPI(Config.BILIBILI_SESSDATA, Config.BILIBILI_BILI_JCT, Config.BILIBILI_BUVID3)
+    api = BilibiliAPI(
+        sessdata=Config.BILIBILI_SESSDATA,
+        bili_jct=Config.BILIBILI_BILI_JCT,
+        buvid3=Config.BILIBILI_BUVID3,
+    )
     memory = Memory(Config.DATA_DIR / "processed.json")
 
     print("=" * 50)
@@ -84,7 +97,6 @@ def main():
 
     # 选择视频
     if mode == "latest":
-        # 最新收藏：取收藏时间最近的未处理视频（列表第一个）
         unprocessed = [v for v in all_videos if not memory.is_processed(v.bvid)]
         if not unprocessed:
             print("所有视频都已处理过")
@@ -105,29 +117,42 @@ def main():
             print("用法: python run_noninteractive.py <收藏夹名称> search <keyword>")
             sys.exit(1)
 
-        # 搜索已总结记录
+        # 语义搜索（ChromaDB）
+        vector_store = _get_vector_store()
+        if vector_store is not None:
+            print(f"\n语义搜索: {keyword}")
+            results = vector_store.search(query=keyword, top_k=5, lang="cn")
+            if results:
+                print(f"向量库中找到 {len(results)} 个相关内容:")
+                for r in results:
+                    source_tag = "🔎" if r.source == "vector" else "📝"
+                    print(f"  {source_tag} {r.title} (相似度: {r.score:.2f})")
+                    if r.tldr_cn:
+                        print(f"      {r.tldr_cn[:60]}")
+            else:
+                print("向量库中未找到匹配")
+
+        # 关键词搜索（processed.json）
         memory_results = memory.search_by_keyword(keyword)
         if memory_results:
-            print(f"\n在已总结记录中找到 {len(memory_results)} 个匹配:")
+            print(f"\n已总结记录中找到 {len(memory_results)} 个匹配:")
             for v in memory_results:
                 print(f"  [{v.genre}] {v.title} ({v.bvid})")
                 if v.tldr_cn:
                     print(f"    TLDR: {v.tldr_cn}")
-                if v.key_points_cn:
-                    print(f"    要点: {', '.join(v.key_points_cn[:3])}")
         else:
-            print(f"\n已总结记录中没有匹配 '{keyword}' 的视频")
+            print("\n已总结记录中没有匹配")
 
         # 搜索收藏夹未处理视频
-        folder_matches = [v for v in all_videos
-                          if not memory.is_processed(v.bvid)
-                          and keyword.lower() in v.title.lower()]
+        folder_matches = [
+            v for v in all_videos
+            if not memory.is_processed(v.bvid)
+            and keyword.lower() in v.title.lower()
+        ]
         if folder_matches:
-            print(f"\n在收藏夹未处理视频中找到 {len(folder_matches)} 个匹配:")
+            print(f"\n收藏夹未处理视频中找到 {len(folder_matches)} 个匹配:")
             for v in folder_matches[:10]:
                 print(f"  {v.title} ({v.bvid}) - UP主: {v.owner}")
-        else:
-            print(f"\n收藏夹未处理视频中没有标题匹配 '{keyword}' 的视频")
 
         sys.exit(0)
     else:
@@ -178,23 +203,60 @@ def main():
         subtitles=subtitles,
         comments=comments,
         danmakus=danmakus,
-        llm_caller=None,  # 使用简单总结模式；传入 LLM 函数可生成更好的总结
+        llm_caller=None,  # 传入 LLM 函数可生成更好的总结
     )
+
+    # 向量化（ChromaDB，懒加载）
+    vector_store = _get_vector_store()
+    if vector_store is not None:
+        try:
+            vector_store.on_video_processed(summary, video.bvid, video.title)
+            print("  ✅ 已存入向量库")
+        except Exception as e:
+            print(f"  向量化失败（不影响流程）: {e}")
+
+    # 注册 Topic 图谱
+    if hasattr(summary, "my_analysis") and summary.my_analysis:
+        concepts = getattr(summary.my_analysis, "concepts", [])
+        if concepts:
+            graph = load_or_build_graph(Config.DATA_DIR)
+            topic_names = [
+                c.name for c in concepts
+                if hasattr(c, "name") and c.name
+            ]
+            graph.register_video(video.bvid, video.title, topic_names)
+            if hasattr(summary, "prerequisites_cn") and summary.prerequisites_cn:
+                graph.infer_dependencies_from_summary(video.bvid, summary.prerequisites_cn)
+            graph.save(Config.DATA_DIR / "topic_graph.json")
 
     # 记录
     memory.mark_processed(video.bvid, video.title, summary=summary)
     print("已记录为已处理视频")
 
-    # 生成PDF
+    # 生成 PDF
     print("生成PDF...")
-    progress_stats = calculate_progress(memory, total_in_folder=folder.media_count)
+    progress_stats = calculate_progress(
+        memory,
+        total_in_folder=folder.media_count,
+        data_dir=Config.DATA_DIR,
+    )
     progress_text = render_mini_progress(progress_stats)
-    pdf_path = generate_pdf(summary, Config.OUTPUT_DIR, bvid=video.bvid, progress_text=progress_text)
+    pdf_path = generate_pdf(
+        summary,
+        Config.OUTPUT_DIR,
+        bvid=video.bvid,
+        progress_text=progress_text,
+    )
     print(f"\nPDF已生成: {pdf_path}")
     print(f"文件大小: {pdf_path.stat().st_size / 1024:.1f} KB")
 
     # 考古进度
-    print_progress(memory, folder_name=folder.title, total_in_folder=folder.media_count)
+    print_progress(
+        memory,
+        folder_name=folder.title,
+        total_in_folder=folder.media_count,
+        data_dir=Config.DATA_DIR,
+    )
 
     # 推送指令
     platform = Config.DELIVERY_PLATFORM.lower()
