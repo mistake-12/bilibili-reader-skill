@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="收藏了不看？让 AI 帮你做视频笔记 — bilibili-reader skill 演示">
+    <title>收藏了不看？让 AI 帮你做视频笔记</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── Viewport Base ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overflow-x: hidden; overscroll-behavior: none; }
+        html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+        .slide {
+            width: 100vw; height: 100vh; height: 100dvh;
+            overflow: hidden; scroll-snap-align: start; scroll-snap-stop: always;
+            display: flex; flex-direction: column; position: relative; user-select: none;
+        }
+        .slide-content, .slide-content * { user-select: text; }
+        .slide-content {
+            flex: 1; display: flex; flex-direction: column; justify-content: center;
+            max-height: 100%; overflow: hidden;
+            padding: clamp(1rem, 4vw, 4rem); gap: clamp(0.5rem, 2vw, 2rem);
+            position: relative; z-index: 1;
+        }
+
+        /* ── Design Tokens ── */
+        :root {
+            --bg: #0a0f1c; --surface: #0d1529; --surface-2: #1e2d4a;
+            --border: rgba(255,255,255,0.08); --text: #e8f4fd; --text-muted: #94a3b8;
+            --accent: #00a1d6; --accent-2: #fb7299; --glow: 0 0 40px rgba(0,161,214,0.35);
+            --font-display: 'Syne', 'Noto Sans SC', sans-serif;
+            --font-body: 'Noto Sans SC', 'Syne', sans-serif;
+            --title-size: clamp(1.5rem, 5vw, 4rem);
+            --h2-size: clamp(1.25rem, 3.5vw, 2.5rem);
+            --body-size: clamp(0.75rem, 1.5vw, 1.125rem);
+            --small-size: clamp(0.65rem, 1vw, 0.875rem);
+        }
+
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+
+        /* ── Grid Overlay ── */
+        .slide-bg {
+            position: absolute; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(0,161,214,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,161,214,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ── Neon Glow Text ── */
+        .neon {
+            text-shadow: 0 0 10px rgba(0,161,214,0.5), 0 0 30px rgba(0,161,214,0.3), 0 0 60px rgba(0,161,214,0.15);
+        }
+        .neon-pink {
+            text-shadow: 0 0 10px rgba(251,114,153,0.5), 0 0 30px rgba(251,114,153,0.3);
+        }
+
+        /* ── Typography ── */
+        h1 { font-family: var(--font-display); font-size: var(--title-size); line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; }
+        h2 { font-family: var(--font-display); font-size: var(--h2-size); line-height: 1.2; font-weight: 700; }
+        p, li { font-size: var(--body-size); line-height: 1.6; }
+        .label { font-size: clamp(0.6rem, 0.9vw, 0.75rem); letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+        .subtitle { font-size: clamp(0.9rem, 2vw, 1.4rem); color: var(--text-muted); font-weight: 300; }
+
+        /* ── Stats ── */
+        .stat-number { font-family: var(--font-display); font-size: clamp(2.5rem, 8vw, 6rem); font-weight: 800; line-height: 1; }
+        .stat-label { font-size: var(--body-size); color: var(--text-muted); margin-top: 0.5em; }
+
+        /* ── Cards ── */
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(0.5rem, 1.5vw, 1rem); width: 100%; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: clamp(8px, 1vw, 16px); padding: clamp(0.75rem, 2vw, 2rem);
+            transition: all 0.3s ease;
+        }
+        .card:hover { border-color: var(--accent); box-shadow: var(--glow); transform: translateY(-2px); }
+        .card-icon { font-size: clamp(1.5rem, 3vw, 2.5rem); display: block; margin-bottom: 0.5em; }
+        .card-title { font-family: var(--font-display); font-size: clamp(0.85rem, 1.5vw, 1.1rem); font-weight: 700; margin-bottom: 0.3em; }
+        .card-body { font-size: var(--small-size); color: var(--text-muted); line-height: 1.5; }
+
+        /* ── Terminal ── */
+        .terminal {
+            background: #0d1117; border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; max-width: min(90vw, 700px); box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .terminal-bar {
+            display: flex; gap: 6px; padding: 10px 14px; background: #161b22;
+        }
+        .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .terminal-dot.r { background: #ff5f56; } .terminal-dot.y { background: #ffbd2e; } .terminal-dot.g { background: #27c93f; }
+        .terminal-body { padding: 16px 20px; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: clamp(0.65rem, 1.2vw, 0.9rem); line-height: 1.7; }
+        .terminal-body .prompt { color: var(--accent); }
+        .terminal-body .output { color: var(--text-muted); }
+        .terminal-body .success { color: #27c93f; }
+        .terminal-body .highlight { color: var(--accent-2); }
+
+        /* ── Progress Bar ── */
+        .progress-bar {
+            position: fixed; top: 0; left: 0; height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            transition: width 0.3s ease; z-index: 101;
+        }
+
+        /* ── Nav Dots ── */
+        .nav-dots {
+            position: fixed; right: clamp(0.75rem, 2vw, 1.5rem); top: 50%;
+            transform: translateY(-50%); display: flex; flex-direction: column;
+            gap: 0.5rem; z-index: 100;
+        }
+        .nav-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+            opacity: 0.3; cursor: pointer; transition: all 0.3s ease; border: none; padding: 0;
+        }
+        .nav-dot.active, .nav-dot:hover { opacity: 1; transform: scale(1.3); }
+
+        /* ── Keyboard Hint ── */
+        .keyboard-hint {
+            position: fixed; bottom: clamp(0.5rem, 1.5vh, 1rem); left: 50%;
+            transform: translateX(-50%); font-size: var(--small-size);
+            opacity: 0.3; pointer-events: none; z-index: 99; white-space: nowrap;
+        }
+
+        /* ── Entrance Animations ── */
+        .enter-fade-up { opacity: 0; transform: translateY(30px); animation: fadeUp 0.6s ease forwards; animation-delay: var(--delay, 0s); }
+        .enter-scale-in { opacity: 0; transform: scale(0.9); animation: scaleIn 0.5s ease forwards; animation-delay: var(--delay, 0s); }
+        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { to { opacity: 1; transform: scale(1); } }
+
+        /* ── CTA Button ── */
+        .cta {
+            display: inline-block; padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(1.5rem, 3vw, 2.5rem);
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #fff; font-weight: 700; font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+            border-radius: 50px; text-decoration: none; transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,161,214,0.3);
+        }
+        .cta:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,161,214,0.5); }
+
+        /* ── Bullet List ── */
+        .bullet-list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.4rem, 1vh, 1rem); }
+        .bullet-list li { display: flex; align-items: flex-start; gap: 0.5em; }
+        .bullet-icon { color: var(--accent); font-weight: bold; flex-shrink: 0; }
+
+        /* ── Pulse Ring ── */
+        .pulse-ring {
+            position: absolute; border-radius: 50%; border: 1px solid var(--accent);
+            opacity: 0; animation: pulseOut 3s ease-out infinite;
+        }
+        @keyframes pulseOut { 0% { transform: scale(0.5); opacity: 0.5; } 100% { transform: scale(2.5); opacity: 0; } }
+
+        /* ── Reduced Motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+        }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        @media (max-height: 700px) { :root { --title-size: clamp(1.25rem, 4.5vw, 2.5rem); } }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    <nav class="nav-dots" id="navDots"></nav>
+    <p class="keyboard-hint" aria-hidden="true">↑↓ 或滚轮导航 · F 全屏</p>
+
+    <!-- ═══════ SLIDE 1: HOOK ═══════ -->
+    <section class="slide" id="slide-1" data-slide-index="0">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center; text-align:center;">
+            <div class="enter-fade-up">
+                <p class="stat-number neon" style="color: var(--accent-2);">347</p>
+                <p class="stat-label">你的B站收藏夹里，有 <strong>347</strong> 个视频</p>
+                <p class="stat-label" style="color: var(--accent-2); font-size: clamp(0.8rem, 1.6vw, 1.2rem); margin-top: 1rem;">
+                    你真正看完的，有几个？
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 2: PAIN ═══════ -->
+    <section class="slide" id="slide-2" data-slide-index="1">
+        <div class="slide-bg"></div>
+        <div class="slide-content">
+            <h2 class="enter-fade-up" style="margin-bottom: 1rem;">每个B站用户都有的<span style="color: var(--accent-2);">「收藏焦虑」</span></h2>
+            <ul class="bullet-list">
+                <li class="enter-fade-up" style="--delay:0.1s"><span class="bullet-icon">→</span>看到好视频 → 收藏 → "以后再看" → 再也没看</li>
+                <li class="enter-fade-up" style="--delay:0.2s"><span class="bullet-icon">→</span>收藏夹从 50 个涨到 500 个，焦虑感越来越强</li>
+                <li class="enter-fade-up" style="--delay:0.3s"><span class="bullet-icon">→</span>想看但没时间，23 分钟的视频太长了</li>
+                <li class="enter-fade-up" style="--delay:0.4s"><span class="bullet-icon">→</span>收藏了 = 学会了？不，你只是收藏了</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 3: QUESTION ═══════ -->
+    <section class="slide" id="slide-3" data-slide-index="2">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center; text-align:center;">
+            <div class="enter-fade-up">
+                <h2 style="font-size: clamp(1.5rem, 4vw, 3rem);">如果有一个 AI</h2>
+                <h2 style="font-size: clamp(1.5rem, 4vw, 3rem); color: var(--accent);">帮你把每个视频都读一遍</h2>
+                <h2 style="font-size: clamp(1.5rem, 4vw, 3rem);">然后给你一份<span style="color: var(--accent-2);">学习笔记</span>呢？</h2>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 4: SOLUTION ═══════ -->
+    <section class="slide" id="slide-4" data-slide-index="3">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center; text-align:center;">
+            <div class="enter-fade-up">
+                <p class="label" style="margin-bottom: 1rem;">INTRODUCING</p>
+                <h1 class="neon" style="color: var(--accent);">bilibili-reader</h1>
+                <p class="subtitle" style="margin-top: 1rem;">收藏夹视频智能总结 Skill</p>
+                <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: clamp(0.75rem, 1.3vw, 1rem);">
+                    自动选取 → 读取字幕/评论/弹幕 → 生成中英双语结构化笔记
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 5: DEMO ═══════ -->
+    <section class="slide" id="slide-5" data-slide-index="4">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center;">
+            <h2 class="enter-fade-up" style="text-align:center; margin-bottom: 1.5rem;">看它怎么工作</h2>
+            <div class="terminal enter-scale-in" style="--delay:0.2s">
+                <div class="terminal-bar">
+                    <span class="terminal-dot r"></span>
+                    <span class="terminal-dot y"></span>
+                    <span class="terminal-dot g"></span>
+                </div>
+                <div class="terminal-body">
+                    <div><span class="prompt">$ </span>python -m src</div>
+                    <div class="output">正在获取收藏夹列表...</div>
+                    <div class="output">已选择: <span style="color:var(--text)">代码</span> (30个视频)</div>
+                    <div class="output">随机选中: <span class="highlight">Python装饰器完全指南</span></div>
+                    <div class="output">正在下载字幕... 获取到 342 条字幕</div>
+                    <div class="output">正在获取高赞评论... 获取到 10 条评论</div>
+                    <div class="output">正在获取弹幕... 获取到 50 条弹幕</div>
+                    <div class="output">体裁: <span style="color:var(--accent)">💻 技术教程与实操</span></div>
+                    <div class="output">正在生成总结...</div>
+                    <div class="success">PDF已生成: output/20260506_Python装饰器完全指南.pdf</div>
+                    <div class="success">已记录为已处理视频</div>
+                    <div style="margin-top:8px; color: var(--accent);">
+                        ████████████░░░░░░░░ 40% · 已消化 12/30 个视频
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 6: GENRE ═══════ -->
+    <section class="slide" id="slide-6" data-slide-index="5">
+        <div class="slide-bg"></div>
+        <div class="slide-content">
+            <h2 class="enter-fade-up" style="text-align:center;">10 种体裁，10 套提示词</h2>
+            <p style="text-align:center; color: var(--text-muted); margin-bottom: 1rem;">AI 自动判断视频类型，用最合适的模板生成总结</p>
+            <div class="grid">
+                <div class="card enter-scale-in" style="--delay:0.1s"><span class="card-icon">💻</span><div class="card-title">技术教程</div><div class="card-body">工具清单 · 代码片段 · 避坑指南</div></div>
+                <div class="card enter-scale-in" style="--delay:0.15s"><span class="card-icon">🎓</span><div class="card-title">学科教育</div><div class="card-body">考点 · 公式 · 应试技巧</div></div>
+                <div class="card enter-scale-in" style="--delay:0.2s"><span class="card-icon">🗣️</span><div class="card-title">语言学习</div><div class="card-body">词汇表 · 语法点 · 发音</div></div>
+                <div class="card enter-scale-in" style="--delay:0.25s"><span class="card-icon">🔬</span><div class="card-title">深度解析</div><div class="card-body">论点-论据 · 数据来源</div></div>
+                <div class="card enter-scale-in" style="--delay:0.3s"><span class="card-icon">🧠</span><div class="card-title">方法论</div><div class="card-body">可执行框架 · 练习模板</div></div>
+                <div class="card enter-scale-in" style="--delay:0.35s"><span class="card-icon">💼</span><div class="card-title">职场技能</div><div class="card-body">话术模板 · 场景SOP</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 7: PDF SHOWCASE ═══════ -->
+    <section class="slide" id="slide-7" data-slide-index="6">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center;">
+            <h2 class="enter-fade-up" style="text-align:center; margin-bottom: 1rem;">生成的笔记长什么样</h2>
+            <div class="enter-scale-in" style="--delay:0.15s; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 800px;">
+                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+                    <p style="color: var(--accent); font-weight: 700; margin-bottom: 0.8rem;">📋 中文部分</p>
+                    <p style="font-size: var(--small-size); color: var(--text-muted); line-height: 1.8;">
+                        ⚡ TLDR: 装饰器本质是高阶函数的语法糖<br>
+                        🎯 核心要点 × 5<br>
+                        📋 前置知识 · 📊 难度评级<br>
+                        🧠 洞察与启发<br>
+                        💬 精选评论<br>
+                        🚀 后续行动
+                    </p>
+                </div>
+                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+                    <p style="color: var(--accent-2); font-weight: 700; margin-bottom: 0.8rem;">📋 English Section</p>
+                    <p style="font-size: var(--small-size); color: var(--text-muted); line-height: 1.8;">
+                        ⚡ TL;DR: Decorators are syntactic sugar for HOFs<br>
+                        🎯 Key Points × 5<br>
+                        📋 Prerequisites · 📊 Difficulty<br>
+                        🧠 Insights<br>
+                        💬 Top Comments<br>
+                        🚀 Next Steps
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 8: ACHIEVEMENTS ═══════ -->
+    <section class="slide" id="slide-8" data-slide-index="7">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center; text-align:center;">
+            <h2 class="enter-fade-up">收藏夹考古系统</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">每消化一个视频就"点亮"一块，看你的知识版图怎么扩张</p>
+            <div class="enter-scale-in" style="--delay:0.2s; display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center;">
+                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
+                    <span style="font-size: 2rem;">🌱</span>
+                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">初次发掘</p>
+                </div>
+                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
+                    <span style="font-size: 2rem;">🔍</span>
+                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">考古新手</p>
+                </div>
+                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--accent); box-shadow: var(--glow);">
+                    <span style="font-size: 2rem;">⛏️</span>
+                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">考古学徒</p>
+                </div>
+                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
+                    <span style="font-size: 2rem;">🏛️</span>
+                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">知识守护者</p>
+                </div>
+                <div style="background: var(--surface); border-radius: 12px; padding: 1rem 1.5rem; border: 1px solid var(--border);">
+                    <span style="font-size: 2rem;">👑</span>
+                    <p style="font-size: var(--small-size); margin-top: 0.3rem;">收藏夹征服者</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 9: INSTALL ═══════ -->
+    <section class="slide" id="slide-9" data-slide-index="8">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center; text-align:center;">
+            <div class="enter-fade-up">
+                <h2 style="margin-bottom: 1.5rem;">30 秒开始使用</h2>
+                <div class="terminal" style="text-align:left; margin: 0 auto;">
+                    <div class="terminal-bar">
+                        <span class="terminal-dot r"></span>
+                        <span class="terminal-dot y"></span>
+                        <span class="terminal-dot g"></span>
+                    </div>
+                    <div class="terminal-body">
+                        <div><span class="prompt"># Hermes Agent 用户 — 直接对 Agent 说：</span></div>
+                        <div style="color: var(--text);">帮我去 github.com/mistake-12/bilibili-reader-skill<br>安装这个 bilibili-reader skill</div>
+                        <div style="margin-top: 12px;"><span class="prompt"># OpenClaw 用户：</span></div>
+                        <div style="color: var(--text);">openclaw skills install mistake-12/bilibili-reader-skill</div>
+                        <div style="margin-top: 12px;"><span class="prompt"># 然后直接说：</span></div>
+                        <div class="highlight">帮我从收藏夹随机总结一个视频</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ SLIDE 10: CTA ═══════ -->
+    <section class="slide" id="slide-10" data-slide-index="9">
+        <div class="slide-bg"></div>
+        <div class="slide-content" style="align-items:center; text-align:center;">
+            <div class="enter-fade-up">
+                <h1 style="font-size: clamp(1.5rem, 4.5vw, 3.5rem); margin-bottom: 1.5rem;">
+                    收藏了不看？<br><span style="color: var(--accent);">让它变成知识。</span>
+                </h1>
+                <a href="https://github.com/mistake-12/bilibili-reader-skill" class="cta">
+                    GitHub → mistake-12/bilibili-reader-skill
+                </a>
+                <p style="margin-top: 2rem; color: var(--text-muted); font-size: var(--small-size);">
+                    兼容 Hermes Agent · OpenClaw · Claude Code · Gemini CLI
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ JS ═══════ -->
+    <script>
+    class SlidePresentation {
+        constructor() {
+            this.slides = Array.from(document.querySelectorAll('.slide'));
+            this.current = 0; this.isAnimating = false;
+            this.touchStartY = 0; this.touchStartX = 0;
+            this.init();
+        }
+        init() {
+            if (!this.slides.length) return;
+            this.buildNavDots(); this.buildProgressBar();
+            this.bindKeyboard(); this.bindTouch(); this.bindWheel(); this.bindHash();
+            this.observeSlides(); this.goTo(this.getInitialSlide(), false);
+        }
+        buildNavDots() {
+            const nav = document.getElementById('navDots');
+            this.slides.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'nav-dot'; btn.dataset.index = i;
+                btn.addEventListener('click', () => this.goTo(i));
+                nav.appendChild(btn);
+            });
+            this.dots = Array.from(nav.querySelectorAll('.nav-dot'));
+        }
+        buildProgressBar() { this.progressBar = document.getElementById('progressBar'); }
+        updateProgress() {
+            if (!this.progressBar) return;
+            const pct = this.slides.length > 1 ? (this.current / (this.slides.length - 1)) * 100 : 100;
+            this.progressBar.style.width = `${pct}%`;
+            if (this.dots) this.dots.forEach((d, i) => d.classList.toggle('active', i === this.current));
+        }
+        goTo(index, animate = true) {
+            const target = Math.max(0, Math.min(index, this.slides.length - 1));
+            if (target === this.current && animate) return;
+            this.current = target;
+            this.slides[target].scrollIntoView({ behavior: animate ? 'smooth' : 'instant' });
+            this.updateProgress(); this.triggerEntrance(this.slides[target]);
+            history.replaceState(null, '', `#slide-${target + 1}`);
+        }
+        next() { this.goTo(this.current + 1); }
+        prev() { this.goTo(this.current - 1); }
+        getInitialSlide() {
+            const m = window.location.hash.match(/#slide-(\d+)/);
+            return m ? parseInt(m[1], 10) - 1 : 0;
+        }
+        bindKeyboard() {
+            document.addEventListener('keydown', (e) => {
+                if (e.target.matches('[contenteditable], input, textarea')) return;
+                switch (e.key) {
+                    case 'ArrowDown': case 'ArrowRight': case ' ': case 'PageDown': e.preventDefault(); this.next(); break;
+                    case 'ArrowUp': case 'ArrowLeft': case 'PageUp': e.preventDefault(); this.prev(); break;
+                    case 'Home': e.preventDefault(); this.goTo(0); break;
+                    case 'End': e.preventDefault(); this.goTo(this.slides.length - 1); break;
+                    case 'f': case 'F': if (!e.ctrlKey && !e.metaKey) { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); } break;
+                }
+            });
+        }
+        bindTouch() {
+            document.addEventListener('touchstart', (e) => { this.touchStartY = e.touches[0].clientY; this.touchStartX = e.touches[0].clientX; }, { passive: true });
+            document.addEventListener('touchend', (e) => {
+                const dy = this.touchStartY - e.changedTouches[0].clientY, dx = this.touchStartX - e.changedTouches[0].clientX;
+                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 40) dy > 0 ? this.next() : this.prev();
+            }, { passive: true });
+        }
+        bindWheel() {
+            let t; document.addEventListener('wheel', (e) => { e.preventDefault(); clearTimeout(t); t = setTimeout(() => e.deltaY > 0 ? this.next() : this.prev(), 50); }, { passive: false });
+        }
+        observeSlides() {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const idx = this.slides.indexOf(entry.target);
+                        if (idx !== -1 && idx !== this.current) { this.current = idx; this.updateProgress(); this.triggerEntrance(entry.target); }
+                    }
+                });
+            }, { threshold: 0.6 });
+            this.slides.forEach(s => obs.observe(s));
+        }
+        triggerEntrance(slide) {
+            slide.querySelectorAll('[class*="enter-"]').forEach(el => { el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; });
+        }
+        bindHash() { window.addEventListener('hashchange', () => this.goTo(this.getInitialSlide())); }
+    }
+    document.addEventListener('DOMContentLoaded', () => new SlidePresentation());
+    </script>
+</body>
+</html>
