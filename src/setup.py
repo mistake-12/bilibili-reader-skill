@@ -36,8 +36,8 @@ def run_setup(skip_cookies: bool = False):
 
         choice = _ask_choice("请选择", ["1", "2", "3"], "1")
         if choice == "1":
-            from .auth import login_with_qrcode
-            cookies = login_with_qrcode(save_to_env=True)
+            from .auth import login_via_browser
+            cookies = login_via_browser(save_to_env=True)
             if not cookies:
                 print("登录失败，Cookie未更新")
         elif choice == "2":
