@@ -7,19 +7,20 @@ license: MIT
 prerequisites:
   env_vars:
     - name: BILIBILI_SESSDATA
-      prompt: "请输入B站SESSDATA Cookie"
-      help: "浏览器F12 → Application → Cookies → bilibili.com → SESSDATA"
+      prompt: "B站SESSDATA（运行 python -m src --login 自动获取）"
+      help: "运行 python -m src --login，浏览器会自动打开B站，扫码后自动提取"
       required_for: "B站API认证"
     - name: BILIBILI_BILI_JCT
-      prompt: "请输入B站bili_jct Cookie"
-      help: "浏览器F12 → Application → Cookies → bilibili.com → bili_jct"
+      prompt: "B站bili_jct（运行 python -m src --login 自动获取）"
+      help: "运行 python -m src --login，浏览器会自动打开B站，扫码后自动提取"
       required_for: "B站API认证"
     - name: BILIBILI_BUVID3
-      prompt: "请输入B站buvid3 Cookie"
-      help: "浏览器F12 → Application → Cookies → bilibili.com → buvid3"
+      prompt: "B站buvid3（运行 python -m src --login 自动获取）"
+      help: "运行 python -m src --login，浏览器会自动打开B站，扫码后自动提取"
       required_for: "B站API认证"
   commands:
     - pip install -r requirements.txt
+    - playwright install chromium
 metadata:
   hermes:
     tags:
@@ -88,49 +89,56 @@ metadata:
 
 ### Step 1: 前置配置
 
-首次使用需要配置B站Cookie：
+**Agent 行为规则：** 当检测到 `.env` 中缺少 B站Cookie 时，必须执行以下命令来配置：
 
-1. 浏览器登录 bilibili.com
-2. 按 F12 打开开发者工具
-3. 进入 Application → Cookies → bilibili.com
-4. 复制以下三个值：
-   - `SESSDATA`
-   - `bili_jct`
-   - `buvid3`
-5. 在项目根目录创建 `.env` 文件：
 ```bash
-cp .env.example .env
-# 编辑 .env 填入上面三个值
+cd ~/.hermes/skills/media/bilibili-reader && python -m src --login
 ```
 
-6. 安装依赖：
+此命令会自动完成：
+1. 打开 Chromium 浏览器，访问 bilibili.com
+2. 如果未登录 → 用户用B站APP扫码登录
+3. 如果已登录 → 程序自动提取 Cookie
+4. Cookie 自动保存到 `.env` 文件
+
+**首次安装还需要运行：**
 ```bash
 pip install -r requirements.txt
+playwright install chromium
 ```
 
-### Step 2: 运行总结
+**重要：不要引导用户手动从浏览器 F12 复制 Cookie。** 使用 `python -m src --login` 自动获取。
+
+### Step 2: Agent 三步工作流（核心）
+
+**Agent 行为规则：** 当用户要求总结视频时，严格按以下三步执行：
+
+**第一步：获取视频数据**
 
 ```bash
-python -m src
+cd ~/.hermes/skills/media/bilibili-reader && python scripts/fetch_data.py <收藏夹名称> [latest|random|<bvid>]
 ```
 
-### Step 3: 工作流程
+这会输出一个 JSON，包含：`bvid`、`title`、`desc`、`owner`、`duration`、`subtitles`、`comments`、`danmakus`。
 
-程序会自动执行以下步骤：
+**第二步：Agent 生成总结（用你自己的 LLM）**
 
-1. **验证配置** — 检查Cookie是否已配置
-2. **获取收藏夹** — 调用B站API获取用户所有收藏夹
-3. **选择收藏夹** — 如有多个收藏夹，提示用户选择
-4. **选择视频** — 支持三种模式：
-   - `latest`（默认）：取收藏时间最近的未处理视频（收藏夹第一个）
-   - `random`：从未处理的视频中随机选取
-   - `<bvid>`：指定BV号
-5. **获取数据** — 并行获取视频详情、字幕、高赞评论、弹幕
-6. **字幕概括** — 根据时长选择策略（<30min一次性概括，>=30min分段+重叠）
-7. **意图路由** — 用LLM判断视频属于哪种体裁，选择专用提示词
-8. **生成总结** — 调用LLM生成结构化总结（含TLDR、要点、洞察）
-9. **输出PDF** — 渲染HTML模板并转为PDF（中英分离排版）
-10. **记录记忆** — 将视频bvid写入 `data/processed.json`
+读取第一步的 JSON 输出，根据视频标题、简介、字幕内容判断体裁（见下方 10 种体裁表），然后用对应的提示词模板生成结构化总结。
+
+字幕处理规则：
+- 字幕少于 500 条 → 直接概括
+- 字幕 500-2000 条 → 分段概括（每段约 500 条），合并后再总结
+- 字幕超过 2000 条 → 取前 1000 条 + 后 500 条概括
+
+**第三步：渲染 PDF**
+
+把第二步生成的总结 JSON 写入临时文件，然后调用渲染脚本：
+
+```bash
+cd ~/.hermes/skills/media/bilibili-reader && python scripts/render_pdf.py /tmp/summary.json
+```
+
+脚本会输出 PDF 文件路径。将路径告诉用户，并附上一句话 TLDR。
 
 > **收藏时间排序说明**：API按收藏时间倒序返回视频，第一个即为最新收藏的视频。
 
@@ -162,6 +170,73 @@ python -m src
 - 书籍类 → 核心论点、知识框架
 - 生活类 → 材料清单、操作步骤、验收标准
 - 通用 → 深入浅出讲明白内容
+
+### 总结 JSON 输出格式
+
+Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tmp/summary.json`）：
+
+```json
+{
+  "bvid": "视频BV号（从fetch_data输出中获取）",
+  "title_cn": "中文标题",
+  "title_en": "English title",
+  "owner": "UP主名称",
+  "duration_str": "时长格式化 如 23:45",
+  "view_count": 12345,
+  "like_count": 678,
+  "genre": "体裁显示名 如 💻 技术教程与实操",
+  "tldr_cn": "一句话中文总结（50字内）",
+  "tldr_en": "One-sentence TL;DR (under 50 words)",
+  "summary_cn": "中文摘要 300-500字，讲明白具体做了什么、核心结论",
+  "summary_en": "English summary 200-400 words",
+  "key_points_cn": ["要点1", "要点2", "要点3", "要点4", "要点5"],
+  "key_points_en": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
+  "prerequisites_cn": "前置知识",
+  "prerequisites_en": "Prerequisites",
+  "difficulty_cn": "难度：入门/进阶/高级 + 理由",
+  "difficulty_en": "Difficulty level + why",
+  "next_steps_cn": "看完后应该做什么，2-3个具体行动",
+  "next_steps_en": "2-3 specific follow-up actions",
+  "key_misconceptions_cn": "常见误解及纠正",
+  "key_misconceptions_en": "Common misconceptions",
+  "insights_cn": "深层洞察 100-200字",
+  "insights_en": "Deep insights 100-200 words",
+  "top_comments": [{"user": "用户名", "content_cn": "评论内容", "likes": 123}],
+  "recommendation_cn": "推荐理由 50-100字",
+  "recommendation_en": "Recommendation 50-100 words"
+}
+```
+
+**体裁专用字段（按体裁选填）：**
+
+| 体裁 | 额外字段 |
+|------|---------|
+| 技术教程 | `tool_stack`: [{name, purpose, barrier}], `code_snippets`: [{lang, code, context}], `pitfalls_cn/en`, `expected_outcome_cn/en` |
+| 学科教育 | `exam_format_cn/en` |
+| 语言学习 | `vocabulary_list`: [{word, meaning, example}] |
+| 深度解析 | `data_sources_cn/en` |
+| 方法论 | `practice_template_cn/en` |
+| 职场技能 | `scripts_templates`: [{scenario, script}] |
+| 艺术创造 | `reference_works_cn/en` |
+| 书籍拆解 | `key_quotes`: [{quote, context}] |
+| 生活技能 | `materials_list`: [{item, purpose, cost_estimate}] |
+| 通用知识 | `related_topics_cn/en` |
+
+### 体裁判断规则
+
+根据视频标题、简介、字幕前 500 条内容判断：
+
+1. **技术教程** — 标题/内容含：编程语言名、框架名、工具名、"教程"/"入门"/"实战"/"配置"/"搭建"
+2. **学科教育** — 标题/内容含：考研/四六级/公考/大学/课程/考试/知识点/公式
+3. **语言学习** — 标题/内容含：英语/日语/语法/单词/口语/听力/TOEFL/IELTS
+4. **深度解析** — 标题/内容含：分析/解读/深度/揭秘/原理/背后的逻辑/数据
+5. **方法论** — 标题/内容含：方法/技巧/提升/效率/习惯/思维/框架/自律
+6. **职场技能** — 标题/内容含：求职/面试/简历/副业/赚钱/职场/晋升/薪资
+7. **艺术创造** — 标题/内容含：绘画/摄影/设计/音乐/写作/PS/Pr/Blender
+8. **书籍拆解** — 标题/内容含：书名号、读书/拆书/书评/笔记/读后感
+9. **生活技能** — 标题/内容含：教程/DIY/做菜/维修/收纳/清洁/健康
+
+不匹配任何类型 → 用通用模板。
 
 ### Step 4: 查看结果
 
