@@ -1,14 +1,11 @@
-"""B站登录 — 浏览器扫码 + Cookie提取"""
+"""B站登录 — Playwright 自动化浏览器登录"""
 
-import webbrowser
 from pathlib import Path
 from typing import Optional
 
 
 def login_via_browser(save_to_env: bool = True) -> Optional[dict[str, str]]:
-    """通过浏览器登录B站并提取Cookie
-
-    打开B站登录页面，用户扫码后，粘贴浏览器控制台输出的Cookie字符串。
+    """通过 Playwright 打开浏览器，用户扫码后自动提取 Cookie
 
     Args:
         save_to_env: 是否自动保存到 .env 文件
@@ -20,68 +17,75 @@ def login_via_browser(save_to_env: bool = True) -> Optional[dict[str, str]]:
     print("B站登录")
     print("=" * 50)
 
-    # 1. 打开B站登录页
-    login_url = "https://passport.bilibili.com/login"
-    print(f"\n正在打开浏览器...")
+    # 检查 playwright 是否安装
     try:
-        webbrowser.open(login_url)
-    except Exception:
-        pass
-
-    print(f"如果浏览器没有自动打开，请手动访问:\n{login_url}")
-    print()
-    print("── 操作步骤 ──")
-    print("1. 在浏览器中用B站APP扫码登录")
-    print("2. 登录成功后，按 F12 打开开发者工具")
-    print("3. 切换到「控制台」(Console) 标签")
-    print("4. 粘贴以下命令并回车：")
-    print()
-    print('   document.cookie.split(";").filter(c=>/SESSDATA|bili_jct|buvid3/.test(c.trim().split("=")[0])).map(c=>c.trim()).join("\\n")')
-    print()
-    print("5. 复制输出的结果，粘贴到下面")
-    print()
-
-    # 2. 等待用户粘贴
-    print("请粘贴控制台输出的 Cookie（每行一个 key=value）：")
-    print("（直接回车跳过，稍后手动配置 .env）")
-    print()
-
-    lines = []
-    try:
-        while True:
-            line = input().strip()
-            if not line:
-                break
-            lines.append(line)
-    except (EOFError, KeyboardInterrupt):
-        print("\n已取消")
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("\n需要安装 playwright：")
+        print("  pip install playwright")
+        print("  playwright install chromium")
         return None
 
-    if not lines:
-        print("未输入Cookie，跳过配置")
-        return None
+    print("\n正在打开浏览器...")
+    print("请在浏览器中完成以下操作：")
+    print("  1. 如果未登录 → 用B站APP扫码登录")
+    print("  2. 如果已登录 → 程序会自动提取 Cookie")
+    print()
 
-    # 3. 解析 Cookie
     cookies = {}
-    for line in lines:
-        if "=" in line:
-            key, _, value = line.partition("=")
-            key = key.strip()
-            # 去掉可能的前缀空格和引号
-            value = value.strip().strip('"').strip("'")
-            if key in ("SESSDATA", "bili_jct", "buvid3"):
-                cookies[key] = value
 
-    if not cookies:
-        print("未识别到有效的Cookie字段（需要 SESSDATA、bili_jct、buvid3）")
+    try:
+        with sync_playwright() as p:
+            # 启动浏览器（非无头模式，用户可以看到界面）
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # 访问 B站首页
+            page.goto("https://www.bilibili.com", wait_until="domcontentloaded")
+
+            # 等待用户登录（检测 SESSDATA cookie 出现）
+            print("等待登录中...（请在浏览器中扫码或确认登录）")
+
+            max_wait = 180  # 最多等 3 分钟
+            waited = 0
+            while waited < max_wait:
+                # 获取当前 cookies
+                all_cookies = context.cookies()
+                cookie_dict = {c["name"]: c["value"] for c in all_cookies}
+
+                has_sessdata = "SESSDATA" in cookie_dict
+                has_jct = "bili_jct" in cookie_dict
+                has_buvid = "buvid3" in cookie_dict
+
+                if has_sessdata and has_jct:
+                    # 找到了关键 cookie
+                    cookies["SESSDATA"] = cookie_dict["SESSDATA"]
+                    cookies["bili_jct"] = cookie_dict["bili_jct"]
+                    cookies["buvid3"] = cookie_dict.get("buvid3", "")
+                    break
+
+                # 每 2 秒检查一次
+                page.wait_for_timeout(2000)
+                waited += 2
+
+                # 如果页面跳转到了登录页，提示用户
+                if "passport.bilibili.com" in page.url:
+                    if waited == 2:  # 只打印一次
+                        print("  检测到登录页面，请扫码登录...")
+
+            browser.close()
+
+    except Exception as e:
+        print(f"\n浏览器操作出错: {e}")
         return None
 
-    missing = [k for k in ("SESSDATA", "bili_jct", "buvid3") if k not in cookies]
-    if missing:
-        print(f"警告: 缺少以下字段: {', '.join(missing)}")
-        print("请确认控制台命令输出了这三项")
+    if not cookies.get("SESSDATA"):
+        print("\n等待超时或未检测到登录状态")
+        print("请确认已在浏览器中成功登录 B站")
+        return None
 
-    # 4. 显示结果
+    # 显示结果
     print(f"\n登录成功!")
     for k, v in cookies.items():
         print(f"  {k}: {v[:20]}...")

@@ -36,6 +36,16 @@ def run_setup(skip_cookies: bool = False):
 
         choice = _ask_choice("请选择", ["1", "2", "3"], "1")
         if choice == "1":
+            # 检查 playwright 是否安装
+            try:
+                import playwright
+            except ImportError:
+                print("\n  需要先安装 playwright：")
+                print("    pip install playwright")
+                print("    playwright install chromium")
+                print()
+                print("  安装完成后重新运行此命令")
+                return
             from .auth import login_via_browser
             cookies = login_via_browser(save_to_env=True)
             if not cookies:
