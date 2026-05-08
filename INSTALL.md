@@ -258,7 +258,7 @@ rm -rf ~/.hermes/skills/bilibili-reader/data/chroma_db/
 
 ```bash
 # Ubuntu/Debian
-sudo apt install fonts-noto-cjk
+apt install fonts-noto-cjk
 
 # macOS
 brew install --cask font-noto-sans-cjk

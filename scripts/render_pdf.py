@@ -3,9 +3,8 @@
 
 用法:
   python scripts/render_pdf.py summary.json
-  echo '{"title_cn":"..."}' | python scripts/render_pdf.py -
 
-输入: JSON 文件路径或 - (从 stdin 读取)
+输入: JSON 文件路径
 输出: PDF 文件路径到 stdout
 """
 
@@ -81,17 +80,13 @@ def main():
 
     # 读取 JSON
     arg = sys.argv[1]
-    if arg == "-":
-        raw = sys.stdin.read()
-    else:
-        path = Path(arg)
-        if not path.exists():
-            print(f"错误: 文件不存在 {arg}", file=sys.stderr)
-            sys.exit(1)
-        raw = path.read_text(encoding="utf-8")
+    path = Path(arg)
+    if not path.exists():
+        print(f"错误: 文件不存在 {arg}", file=sys.stderr)
+        sys.exit(1)
 
     try:
-        data = json.loads(raw)
+        data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         print(f"错误: JSON 解析失败 {e}", file=sys.stderr)
         sys.exit(1)
