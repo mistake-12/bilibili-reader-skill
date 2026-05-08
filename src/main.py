@@ -135,6 +135,11 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="显示向量库统计信息",
     )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="查看收藏夹考古进度（成就系统）",
+    )
     return parser
 
 
@@ -156,6 +161,11 @@ def run(llm_caller=None, args=None):
     # ── 统计模式 ──
     if parsed_args.stats:
         _run_stats()
+        return
+
+    # ── 考古进度模式 ──
+    if parsed_args.progress:
+        _run_progress()
         return
 
     # ── 正常处理流程 ──
@@ -204,6 +214,38 @@ def _run_stats():
     # Memory 统计
     memory = Memory(Config.DATA_DIR / "processed.json")
     print(f"  已处理视频: {memory.get_processed_count()}")
+
+
+def _run_progress():
+    """查看考古进度和成就"""
+    Config.ensure_dirs()
+    memory = Memory(Config.DATA_DIR / "processed.json")
+
+    # 尝试获取收藏夹信息以计算百分比
+    total_in_folder = 0
+    folder_name = ""
+    try:
+        from .bilibili_api import BilibiliAPI
+        api = BilibiliAPI(
+            sessdata=Config.BILIBILI_SESSDATA,
+            bili_jct=Config.BILIBILI_BILI_JCT,
+            buvid3=Config.BILIBILI_BUVID3,
+        )
+        folders = api.get_favorites_list()
+        if folders:
+            # 默认显示第一个收藏夹的进度
+            folder = folders[0]
+            folder_name = folder.title
+            total_in_folder = folder.media_count
+    except Exception:
+        pass
+
+    print_progress(
+        memory,
+        folder_name=folder_name,
+        total_in_folder=total_in_folder,
+        data_dir=Config.DATA_DIR,
+    )
 
 
 def _run_process(llm_caller):
