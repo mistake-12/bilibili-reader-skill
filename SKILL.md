@@ -262,6 +262,8 @@ Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tm
   "next_steps_en": "2-3 specific follow-up actions",
   "key_misconceptions_cn": "常见误解及纠正",
   "key_misconceptions_en": "Common misconceptions",
+  "pitfalls_cn": ["避坑1：具体描述（每条独立一个字符串，不要写成一整段）", "避坑2", "避坑3"],
+  "pitfalls_en": ["Pitfall 1: specific description (each as a separate string)", "Pitfall 2", "Pitfall 3"],
   "insights_cn": "深层洞察 100-200字",
   "insights_en": "Deep insights 100-200 words",
   "top_comments": [{"user": "用户名", "content_cn": "评论内容", "likes": 123}],
@@ -275,7 +277,7 @@ Agent 在第二步生成总结时，必须输出以下 JSON 格式（写入 `/tm
 
 | 体裁 | 额外字段 |
 |------|---------|
-| 技术教程 | `tool_stack`: [{name, purpose, barrier}], `code_snippets`: [{lang, code, context}], `pitfalls_cn/en`, `expected_outcome_cn/en` |
+| 技术教程 | `tool_stack`: [{name, purpose, barrier}], `code_snippets`: [{lang, code, context}], `pitfalls_cn/en`: [str], `expected_outcome_cn/en` |
 | 学科教育 | `exam_format_cn/en` |
 | 语言学习 | `vocabulary_list`: [{word, meaning, example}] |
 | 深度解析 | `data_sources_cn/en` |
@@ -440,6 +442,12 @@ path = graph.get_learning_path(
 
 ## Pitfalls
 
+### pitfalls_cn/en 格式必须是列表
+- **症状**：PDF 避坑指南排版乱，每个字变成单独的列表项
+- **原因**：`pitfalls_cn` 写成了单个字符串，Jinja2 遍历字符串时逐字符迭代
+- **解决**：`pitfalls_cn` 和 `pitfalls_en` 必须是字符串数组，如 `["避坑1", "避坑2"]`
+- **兼容**：模板已加 `is string` 判断，字符串会按句号拆分，但建议始终用列表格式
+
 ### execute_code 工具无法使用 venv 包
 - **症状**：`execute_code` 内调用 weasyprint 等 venv 包时 ModuleNotFoundError
 - **原因**：`execute_code` 使用系统 Python，不是 skill 的 .venv
@@ -516,6 +524,39 @@ path = graph.get_learning_path(
 - **原因**：Python 的 `socket.getaddrinfo()` DNS 解析器在沙箱中被限制，而 curl 用独立的 DNS 解析器（c-ares/libcurl）
 - **解决**：`bilibili_api.py` 的 `_get()` 方法已内置 curl fallback——requests 失败时自动切换到 subprocess+curl
 - **验证**：`cd ${HERMES_SKILL_DIR} && .venv/bin/python -c "from src.bilibili_api import BilibiliAPI; ..."` 如果走 curl 路径会正常返回
+
+### WSL 环境下 Playwright 登录
+- **症状**：`python -m src --login` 运行后无输出，无浏览器弹出，.env 未创建
+- **原因**：WSL 默认无 GUI，Playwright `headless=False` 无法显示浏览器窗口
+- **解决**：检查 WSLg 是否可用（`echo $DISPLAY`，`ls /mnt/wslg/`）
+  - WSLg 可用时，Playwright GUI 正常工作。但直接 `python -m src --login` 可能因 stdout 缓冲看不到输出
+  - 调试方式：直接调用函数而非模块入口，能看到完整输出：
+    ```python
+    from src.auth import login_via_browser
+    cookies = login_via_browser(save_to_env=True)
+    print('Result:', cookies)
+    ```
+  - WSLg 不可用时，需手动从浏览器获取 Cookie 写入 .env
+
+### 交互式配置脚本 EOFError
+- **症状**：`python -m src --config` 或 `run_setup()` 报 `EOFError: EOF when reading a line`
+- **原因**：`setup.py` 使用 `input()` 读取用户选择，非交互式终端（hermes terminal）无 stdin
+- **解决**：不调用交互式脚本，直接读源码理解配置格式后手动写入 .env：
+  - 推送平台配置只需添加一行：`DELIVERY_PLATFORM=wechat`（或 telegram/discord/feishu/none 等）
+  - 其他配置项同理，查看 `setup.py` 的 `_write_env()` 了解写入格式
+
+### python -m src --login 静默退出无输出
+- **症状**：`python -m src --login` 或 `python -m src --config` 执行后无任何输出，直接退出，`.env` 未创建
+- **原因**：在某些环境下（如 WSL），`__main__.py` 的入口逻辑静默失败
+- **解决**：直接调用底层函数：
+  ```python
+  # 登录
+  cd ${HERMES_SKILL_DIR} && .venv/bin/python -c "from src.auth import login_via_browser; login_via_browser(save_to_env=True)"
+
+  # 配置推送（交互式，需 pty）
+  cd ${HERMES_SKILL_DIR} && .venv/bin/python -c "from src.setup import run_setup; run_setup(skip_cookies=True)"
+  ```
+- **注意**：`run_setup()` 是交互式的（需要 input()），在非交互环境会 EOFError。推送平台配置建议手动编辑 `.env` 添加 `DELIVERY_PLATFORM=wechat` 等
 
 ### weasyprint安装问题
 - **症状**：ImportError或字体渲染异常
