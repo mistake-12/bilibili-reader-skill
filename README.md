@@ -100,6 +100,7 @@
 在终端或聊天窗口中对 Hermes 说：
 
 ```
+hermes skills install https://github.com/mistake-12/bilibili-reader-skill
 帮我去 https://github.com/mistake-12/bilibili-reader-skill 安装这个 bilibili-reader skill
 ```
 
