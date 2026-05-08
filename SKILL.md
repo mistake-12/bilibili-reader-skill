@@ -76,8 +76,8 @@ metadata:
 | 命令 | 说明 |
 |------|------|
 | `python -m src` | 运行一次完整的视频总结流程（交互式，需输入选择） |
-| `python -m src --login` | 首次配置向导（扫码登录 + 推送平台设置） |
-| `python -m src --config` | 修改配置（推送平台/推送目标，不动Cookie） |
+| `python -m src --login` | 扫码登录 B站（首次配置第一步） |
+| `python -m src --config` | 配置推送平台（首次配置第二步） |
 | `python -m src --progress` | 查看收藏夹考古进度 |
 | `python -m src --search <关键词>` | 搜索已总结的视频记录 |
 | `python -m src --stats` | 显示统计信息（已处理数量、体裁分布等） |
@@ -93,17 +93,24 @@ metadata:
 
 ### Step 1: 前置配置
 
-**Agent 行为规则：** 当检测到 `.env` 中缺少 B站Cookie 时，必须执行以下命令来配置：
+**Agent 行为规则：** 当检测到 `.env` 中缺少 B站Cookie 时，必须执行以下两步完成首次配置：
 
+**第一步：扫码登录 B站**
 ```bash
 cd ${HERMES_SKILL_DIR} && python -m src --login
 ```
+这会打开浏览器让用户扫码登录，自动提取 Cookie 并保存到 `.env`。
 
-此命令会自动完成：
-1. 打开 Chromium 浏览器，访问 bilibili.com
-2. 如果未登录 → 用户用B站APP扫码登录
-3. 如果已登录 → 程序自动提取 Cookie
-4. Cookie 自动保存到 `.env` 文件
+**第二步：配置推送平台（可选）**
+```bash
+cd ${HERMES_SKILL_DIR} && python -m src --config
+```
+选择推送平台（微信/飞书/Telegram/Discord 等），或选择"不推送"只在本地生成 PDF。
+
+两步都完成后，配置向导会显示：
+- Cookie 状态
+- 推送平台
+- 配置文件路径
 
 **首次安装还需要运行（Hermes 沙箱环境必须用 uv）：**
 ```bash
@@ -318,13 +325,19 @@ PDF文件输出在 `output/` 目录，文件名格式：
 
 ### B站 Cookie 配置
 
-首次使用需要配置 B站 Cookie：
+首次使用需要配置 B站 Cookie（两步完成首次配置）：
 
+**第一步：扫码登录**
 ```bash
 python -m src --login
 ```
+启动浏览器让用户扫码登录，自动获取并保存 Cookie。
 
-这会启动扫码登录向导，自动获取并保存 Cookie。
+**第二步：配置推送平台（可选）**
+```bash
+python -m src --config
+```
+选择推送平台，或选择"不推送"。
 
 ### 推送平台配置（可选）
 

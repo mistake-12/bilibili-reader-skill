@@ -6,8 +6,13 @@ import sys
 def main():
     # 透传所有参数给 main.run()（包含 --search, --stats 等）
     if "--login" in sys.argv:
-        from .setup import run_setup
-        run_setup(skip_cookies=False)
+        # 直接调用浏览器登录，无需 terminal 交互输入
+        from .auth import login_via_browser
+        cookies = login_via_browser(save_to_env=True)
+        if cookies:
+            print("\n登录成功! Cookie 已保存")
+        else:
+            print("\n登录失败或已取消")
     elif "--config" in sys.argv:
         from .setup import run_setup
         run_setup(skip_cookies=True)
