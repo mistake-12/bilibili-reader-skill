@@ -85,6 +85,8 @@
 </tr>
 </table>
 
+> ⚠️ **本地数据说明**：已处理的视频摘要会持久化保存在 `data/` 目录中。如不需要长期历史记录，请定期清理。
+
 </div>
 
 ---
@@ -313,7 +315,7 @@ pip install chromadb>=0.4.0
 
 Agent 安装后会自动引导配置。如需手动修改，请打开网页版B站登录账号，F12进入开发者模式在上方"应用程序"→"cookies"复制粘贴下列的值，在编辑项目根目录的 `.env` 文件：
 ```env
-# B站Cookie（Agent 安装时通过之后的扫码登录获取）
+# B站Cookie（Agent 安装时通过扫码登录获取）
 BILIBILI_SESSDATA=xxx
 BILIBILI_BILI_JCT=xxx
 BILIBILI_BUVID3=xxx
@@ -321,7 +323,10 @@ BILIBILI_BUVID3=xxx
 # 推送平台（可选，不设则不推送）
 DELIVERY_PLATFORM=wechat  # wechat / feishu / telegram / discord / slack / whatsapp / none
 ```
-Cookies保存在本地环境并不会造成隐私泄露。
+> ⚠️ **凭证安全说明**：`.env` 中的 B站 Cookie 是敏感会话凭证，等同于账号密码。
+> - **不要**将此文件提交到公共仓库或分享给他人
+> - 建议对 `.env` 文件设置文件权限（Linux: `chmod 600 .env`）
+> - 如果凭证泄露，请立即到 B站 账号设置中**退出登录所有设备**或更换密码
 也可以运行配置向导重新设置：
 
 ```bash

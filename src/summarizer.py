@@ -1,6 +1,7 @@
 """LLM总结模块 — 统一基座提示词 + v2.0 字段 + 多体裁合并"""
 
 import json
+import random
 from dataclasses import dataclass, field
 from .bilibili_api import VideoInfo, Comment, Danmaku
 from .intent_router import (
@@ -235,64 +236,21 @@ def format_count(count: int) -> str:
 
 
 # ──────────────────────────────────────────────
-# 字幕分段 + 重叠 + 概括
-# ──────────────────────────────────────────────
-
-CHUNK_DURATION = 600       # 每段10分钟
-OVERLAP_DURATION = 60      # 重叠区60秒
-
-
-def chunk_subtitles(subtitles: list[dict], chunk_sec: int = CHUNK_DURATION, overlap_sec: int = OVERLAP_DURATION) -> list[list[dict]]:
-    """将字幕按时间切片，相邻切片之间留重叠区防止断句"""
+# 字幕随机抽样 + 概括
+def summarize_subtitles_with_chunking(subtitles: list[dict], duration_sec: int, llm_caller=None) -> str:
+    """随机抽取最多100条字幕进行概括，不足100则全部使用，无字幕则返回空字符串"""
     if not subtitles:
-        return []
-    subs = sorted(subtitles, key=lambda s: s.get("from", 0))
-    total_dur = subs[-1].get("from", 0) + 5
-    if total_dur <= 0:
-        return [subs]
-    chunks = []
-    start = 0
-    while start < total_dur:
-        end = start + chunk_sec
-        chunk = [s for s in subs if s.get("from", 0) >= start and s.get("from", 0) < end]
-        if chunk:
-            chunks.append(chunk)
-        start += chunk_sec - overlap_sec
-    return chunks
-
-
-def summarize_subtitle_chunk(chunk: list[dict], llm_caller, chunk_idx: int, total_chunks: int) -> str:
-    text = "\n".join(s.get("content", "") for s in chunk)
-    prompt = f"""请用中文概括以下B站视频字幕片段的核心内容（这是第{chunk_idx+1}/{total_chunks}段）。
+        return ""
+    sampled = random.sample(subtitles, min(100, len(subtitles)))
+    text = "\n".join(s.get("content", "") for s in sampled)
+    if not llm_caller:
+        return text
+    prompt = f"""请用中文概括以下B站视频字幕片段的核心内容（已从原字幕中随机抽取{max(1, len(sampled))}条）。
 要求：提炼关键信息，保留技术术语、操作步骤、关键结论，控制在200-400字。
 
 字幕内容：
 {text}"""
     return llm_caller(prompt)
-
-
-def summarize_subtitles_with_chunking(subtitles: list[dict], duration_sec: int, llm_caller=None) -> str:
-    """根据视频时长选择字幕处理策略"""
-    if not subtitles:
-        return ""
-    if not llm_caller:
-        return "\n".join(s.get("content", "") for s in subtitles[:200])
-
-    if duration_sec < 1800:
-        text = "\n".join(s.get("content", "") for s in subtitles)
-        prompt = f"""请用中文概括以下B站视频字幕的核心内容。
-要求：提炼关键信息，保留技术术语、操作步骤、关键结论，控制在300-500字。
-
-字幕内容：
-{text}"""
-        return llm_caller(prompt)
-
-    chunks = chunk_subtitles(subtitles)
-    chunk_summaries = []
-    for i, chunk in enumerate(chunks):
-        summary = summarize_subtitle_chunk(chunk, llm_caller, i, len(chunks))
-        chunk_summaries.append(summary)
-    return "\n\n".join(f"【第{i+1}段】{s}" for i, s in enumerate(chunk_summaries))
 
 
 # ──────────────────────────────────────────────
